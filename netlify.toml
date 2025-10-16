@@ -1,0 +1,3 @@
+[build]
+  publish = "."  # on publie la racine (index.html)
+  functions = "netlify/functions"
