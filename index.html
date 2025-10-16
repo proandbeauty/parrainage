@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pro&Beauty — Parrainage</title>
+  <meta name="description" content="Programme de parrainage Pro&Beauty : inscrivez-vous et recevez votre code unique." />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <style>
+    :root {
+      --bg: #0b0f14;        /* fond sombre chic */
+      --card: #121821;      /* carte */
+      --muted: #9fb0c3;     /* texte secondaire */
+      --text: #eaf2fb;      /* texte principal */
+      --accent: #5dd4a3;    /* accent bouton */
+      --accent-2: #87e6be;  /* hover */
+      --error: #ff6b6b;
+      --success: #64dfb8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: radial-gradient(1200px 600px at 80% -10%, #1a2230 0%, #0b0f14 60%);
+      color: var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      display: grid; place-items: center; min-height: 100vh; padding: 24px;
+    }
+    .wrap { max-width: 780px; width: 100%; }
+    .card { background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 28px; backdrop-filter: blur(6px);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.45);
+    }
+    header { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+    .logo { display:inline-flex; align-items:center; gap:10px; }
+    .logo svg { width:34px; height:34px; }
+    .brand { font-weight:800; letter-spacing:.2px; }
+    h1 { margin: 8px 0 8px 0; font-size: 26px; letter-spacing: 0.2px; }
+    p.lead { margin: 0 0 20px; color: var(--muted); }
+    form { display: grid; gap: 12px; margin-top: 12px; }
+    label { font-size: 14px; color: var(--muted); }
+    input[type="text"], input[type="email"], input[type="tel"] {
+      width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12);
+      background: #0f141c; color: var(--text);
+    }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .consent { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--muted); }
+    .consent a { color: var(--accent); text-decoration: underline; }
+    .btn { background: var(--accent); color: #06281c; font-weight: 700; border: none; padding: 12px 16px; border-radius: 12px; cursor: pointer; }
+    .btn:hover { background: var(--accent-2); }
+    .note { font-size: 12px; color: var(--muted); }
+    .error { color: var(--error); font-size: 14px; }
+    .success { color: var(--success); font-size: 15px; }
+    .center { text-align: center; }
+    .codebox { margin: 18px 0; padding: 14px; background: #0f141c; border-radius: 12px; border: 1px dashed rgba(255,255,255,0.15); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 18px; }
+    .actions { display: flex; gap: 10px; justify-content: center; }
+    .foot { margin-top: 12px; text-align: center; color: var(--muted); font-size: 12px; }
+    details.policy { margin-top:12px; padding:14px; background:#0f141c; border-radius:12px; border:1px solid rgba(255,255,255,0.08); }
+    details.policy summary { cursor:pointer; user-select:none; color: var(--accent); font-weight:600; }
+    .company { margin-top:16px; font-size:13px; color:var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" id="step1">
+      <header>
+        <div class="logo" aria-label="Pro&Beauty">
+          <!-- Logo image (remplace src par ton fichier) -->
+          <img src="./Logo Pro&Beauty.png" alt="Pro&Beauty" style="width:60px;height:60px;object-fit:contain;border-radius:6px;background:#0f141c;border:1px solid rgba(255,255,255,0.15);padding:2px;"/>
+          <div class="brand">Pro&Beauty</div>
+        </div>
+      </header>
+      <h1>Programme de parrainage</h1>
+      <p class="lead">Inscrivez‑vous en 30 secondes : recevez votre <strong>code parrain</strong> à partager à vos clientes et partenaires.</p>
+      <form id="referral-form" novalidate style="margin-top:12px;">
+        <div class="row">
+          <div>
+            <label for="first_name">Prénom</label>
+            <input id="first_name" name="first_name" type="text" placeholder="Jean" required />
+          </div>
+          <div>
+            <label for="last_name">Nom</label>
+            <input id="last_name" name="last_name" type="text" placeholder="Dupont" required />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" placeholder="jean.dupont@mail.com" required />
+          </div>
+          <div>
+            <label for="phone">Téléphone</label>
+            <input id="phone" name="phone" type="tel" placeholder="06 12 34 …" required />
+          </div>
+        </div>
+        <label for="brand">Marque d’origine (optionnel)</label>
+        <input id="brand" name="brand" type="text" placeholder="Ex. CosméNova" />
+
+        <div class="consent">
+          <input id="consent" type="checkbox" required aria-label="Consentement RGPD" />
+          <label for="consent">J’accepte d’être contacté au sujet du programme de parrainage et je reconnais avoir lu la <a href="#" onclick="document.getElementById('policy').open=true;return false;">politique de confidentialité</a>.</label>
+        </div>
+        <button class="btn" type="submit">Valider et générer mon code</button>
+        <div id="msg" class="error" role="alert" aria-live="polite"></div>
+
+        <details id="policy" class="policy">
+          <summary>Politique de confidentialité — Pro&Beauty (aperçu)</summary>
+          <div>
+            <p><strong>Responsable de traitement :</strong> Pro&Beauty — 9 avenue de la marqueille, 31650 St Orens de Gameville — service-clients@proandbeauty.com — 09 72 57 80 15.</p>
+            <p><strong>Données traitées :</strong> prénom, nom, email, téléphone, marque d’origine (optionnel), code de parrainage généré, date d’inscription.</p>
+            <p><strong>Finalités :</strong> gestion du programme de parrainage, attribution des primes/avantages, suivi statistique et communication liée au programme.</p>
+            <p><strong>Base légale :</strong> consentement (art. 6.1.a RGPD) pour les communications ; intérêt légitime (art. 6.1.f) pour la gestion opérationnelle du programme.</p>
+            <p><strong>Destinataires :</strong> personnel habilité de Pro&Beauty et prestataires techniques agissant sur instruction (hébergement, emails). Aucune cession commerciale.</p>
+            <p><strong>Durées de conservation :</strong> 24 mois après la dernière interaction ou jusqu’au retrait du consentement, puis suppression ou anonymisation.</p>
+            <p><strong>Vos droits :</strong> accès, rectification, effacement, limitation, opposition et retrait du consentement. Pour exercer vos droits : service-clients@proandbeauty.com.</p>
+            <p><strong>Sécurité :</strong> accès restreints, chiffrement en transit, politiques d’accès minimales. Les insertions publiques sont limitées (RLS) et aucune lecture de vos données n’est possible depuis cette page.</p>
+          </div>
+        </details>
+
+        <div class="company">
+          <p><strong>Pro&Beauty</strong> — 9 avenue de la marqueille, 31650 St Orens de Gameville — Tél. 09 72 57 80 15 — Email : service-clients@proandbeauty.com</p>
+        </div>
+      </form>
+    </div>
+
+    <div class="card center" id="step2" style="display:none;">
+      <h1>Votre code parrain</h1>
+      <p class="lead">Partagez ce code à vos clientes. Lors de l’inscription, elles n’auront qu’à le fournir.</p>
+      <div id="code" class="codebox">PNB-XXXXXX</div>
+      <div class="actions">
+        <button class="btn" id="copyBtn">Copier</button>
+        <button class="btn" id="qrBtn">Afficher le QR code</button>
+      </div>
+      <canvas id="qrcanvas" style="display:none; margin:16px auto; width:180px; height:180px;"></canvas>
+      <p class="foot">Gardez ce code précieusement. Un email de confirmation peut vous être envoyé ultérieurement.</p>
+    </div>
+  </div>
+
+  <!-- Supabase JS v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Simple QR generator -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+
+  <script>
+    // ===== CONFIG (remplace si besoin) =====
+    const SUPABASE_URL = "https://tpwkptzlhxitllugmlho.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwd2twdHpsaHhpdGxsdWdtbGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA1MTgzMTAsImV4cCI6MjA3NjA5NDMxMH0.zm782jT62rG7WzuPs7FL0Kv9oizkArvOCPLUoGYh3nw";
+    // ======================================
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    function slug2(s){return s.normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z]/g,'');}
+    function rand4(){return Math.floor(Math.random()*10_000).toString().padStart(4,'0');}
+    function checksum(str){let sum=0; for(const c of str){sum += c.charCodeAt(0);} return String(sum % 97).padStart(2,'0');}
+    function makeReferralCode(first, last){
+      const p = (slug2(first).slice(0,2) || 'XX');
+      const n = (slug2(last).slice(0,2) || 'YY');
+      const base = `${p}${n}${rand4()}`;
+      return `PNB-${base}${checksum(base)}`;
+    }
+
+    const form = document.getElementById('referral-form');
+    const msg = document.getElementById('msg');
+    const step1 = document.getElementById('step1');
+    const step2 = document.getElementById('step2');
+    const codeBox = document.getElementById('code');
+    const copyBtn = document.getElementById('copyBtn');
+    const qrBtn = document.getElementById('qrBtn');
+    const qrCanvas = document.getElementById('qrcanvas');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.textContent = '';
+
+      const first_name = document.getElementById('first_name').value.trim();
+      const last_name  = document.getElementById('last_name').value.trim();
+      const email      = document.getElementById('email').value.trim();
+      const phone      = document.getElementById('phone').value.trim();
+      const brand      = document.getElementById('brand').value.trim() || null;
+      const consent    = document.getElementById('consent').checked;
+
+      if(!first_name || !last_name){ msg.textContent = 'Prénom et nom sont requis.'; return; }
+      if(!email || !phone){ msg.textContent = 'Renseignez votre email et votre téléphone.'; return; }
+      if(!consent){ msg.textContent = 'Merci d’accepter la mention de consentement.'; return; }
+
+      const referral_code = makeReferralCode(first_name, last_name);
+
+      const { error } = await supabase
+        .from('referrers')
+        .insert([{ first_name, last_name, email, phone, source_brand: brand, referral_code }]);
+
+      if(error){
+        console.error(error);
+        if(error.code === '23505'){
+          msg.textContent = 'Cet email ou téléphone est déjà inscrit. Si c’est bien vous, contactez le support pour récupérer votre code.';
+        } else {
+          msg.textContent = 'Une erreur est survenue. Réessayez dans un instant.';
+        }
+        return;
+      }
+
+      codeBox.textContent = referral_code;
+      step1.style.display = 'none';
+      step2.style.display = 'block';
+    });
+
+    copyBtn.addEventListener('click', async () => {
+      const text = codeBox.textContent.trim();
+      try { await navigator.clipboard.writeText(text); copyBtn.textContent = 'Copié !'; setTimeout(()=>copyBtn.textContent='Copier',1200); } catch {}
+    });
+
+    const SHARE_URL = 'https://www.proandbeauty.com'; // ton site
+
+qrBtn.addEventListener('click', () => {
+  qrCanvas.style.display = 'block';
+  QRCode.toCanvas(qrCanvas, SHARE_URL, { width: 180, margin: 1 }, (error) => {
+    if (error) console.error(error);
+  });
+});
+
+  </script>
+</body>
+</html>
