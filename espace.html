@@ -261,7 +261,7 @@
 
     // Auto: si on a un token stocké → affiche directement le dashboard
     document.addEventListener('DOMContentLoaded', async ()=>{
-      await checkHashLogin();   // si on arrive via le mail
+      await checkHashLogin();          // si on arrive via le mail (hash #token)
       if (getToken()) await loadOverview(); // si déjà connecté
     });
   </script>
