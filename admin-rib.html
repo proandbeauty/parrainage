@@ -71,24 +71,23 @@
     const tokenEl = document.getElementById('token');
     const statusEl= document.getElementById('status');
     const searchEl= document.getElementById('search');
-
-    // pagination locale
+  
     let offset = 0, lastBatch = [];
-
-    // mémoire du token admin
+  
+    // Mémorise le token admin
     tokenEl.value = localStorage.getItem('pnb_admin_token') || '';
     tokenEl.addEventListener('change', () => localStorage.setItem('pnb_admin_token', tokenEl.value.trim()));
-
+  
     function fmtDate(iso){
       try { return new Date(iso).toLocaleString(); } catch { return iso || ''; }
     }
     function maskIban(iban){
       if(!iban) return '';
-      const clean = iban.replace(/\s+/g,'');
+      const clean = String(iban).replace(/\s+/g,'');
       if(clean.length <= 8) return clean;
       return clean.slice(0,4) + ' •••• •••• •••• ' + clean.slice(-4);
     }
-
+  
     async function load(reset=true){
       try{
         if(reset){ offset = 0; tbody.innerHTML = '<tr><td colspan="5" class="muted">Chargement…</td></tr>'; }
@@ -97,15 +96,15 @@
         const j = await r.json();
         if(!r.ok){ msg.textContent = j.error || 'Erreur'; return; }
         msg.textContent = '';
-
+  
         if(reset) tbody.innerHTML = '';
         lastBatch = j.items || [];
-
+  
         if(lastBatch.length===0 && offset===0){
           tbody.innerHTML = '<tr><td colspan="5" class="muted">Aucun RIB.</td></tr>';
           return;
         }
-
+  
         for(const row of lastBatch){
           const ref = row.referrer || {}; // {first_name,last_name,email,referral_code}
           const tr = document.createElement('tr');
@@ -120,12 +119,12 @@
               <div class="muted">Code: ${ref.referral_code || ''}</div>
             </td>
             <td>
-              <div><b>${maskIban(row.iban_mask || row.iban || '')}</b></div>
+              <div><b>${maskIban(row.iban_masked || row.iban || '')}</b></div>
               <div class="muted">${row.bic ? ('BIC: '+row.bic) : ''}</div>
               <div class="muted">${row.holder_name ? ('Titulaire: '+row.holder_name) : ''}</div>
             </td>
             <td>
-              ${row.proof_id ? `<button class="btn-ghost" data-action="proof" data-id="${row.id}">Voir justificatif</button>` : '<span class="muted">—</span>'}
+              ${row.doc_path ? `<button class="btn-ghost" data-action="proof" data-id="${row.id}">Voir justificatif</button>` : '<span class="muted">—</span>'}
             </td>
             <td>
               <button class="btn-ghost" data-action="approve" data-id="${row.id}">Valider</button>
@@ -134,20 +133,21 @@
           `;
           tbody.appendChild(tr);
         }
-
+  
         offset = j.nextOffset ?? (offset + lastBatch.length);
       }catch(e){
         console.error(e);
         msg.textContent = 'Erreur chargement';
       }
     }
-
+  
     async function setStatus(rib_id, status){
       try{
+        const note = ''; // si tu ajoutes un champ "note" plus tard
         const r = await fetch('/api/admin/ribs-set-status', {
           method:'POST',
           headers: { 'Content-Type':'application/json', Authorization:'Bearer '+tokenEl.value.trim() },
-          body: JSON.stringify({ rib_id, status })
+          body: JSON.stringify({ id: rib_id, status, note })
         });
         const j = await r.json();
         if(!r.ok){ alert(j.error || 'Erreur'); return; }
@@ -156,23 +156,26 @@
         console.error(e); alert('Erreur');
       }
     }
-
+  
     async function openProof(rib_id){
       try{
-        // soit l’API retourne {url: ...}, soit elle stream directement
-        const proofUrl = `/api/admin/ribs-proof?rib_id=${encodeURIComponent(rib_id)}`;
-        // on tente d'ouvrir directement ; si votre endpoint renvoie JSON, adapter ici :
-        window.open(proofUrl, '_blank', 'noopener');
+        // L’endpoint renvoie {ok:true, url:"..."} ; on ouvre cette URL
+        const r = await fetch(`/api/admin/ribs-proof?id=${encodeURIComponent(rib_id)}`, {
+          headers:{ Authorization:'Bearer '+tokenEl.value.trim() }
+        });
+        const j = await r.json();
+        if(!r.ok || !j.url){ alert(j.error || 'Justificatif indisponible'); return; }
+        window.open(j.url, '_blank', 'noopener');
       }catch(e){
         console.error(e); alert('Impossible d’ouvrir le justificatif.');
       }
     }
-
-    // actions
+  
+    // Actions de la barre
     document.getElementById('load').onclick = () => load(true);
     document.getElementById('more').onclick = () => load(false);
-
-    // export CSV (simple : même flux que list, mais server-side)
+  
+    // Export CSV (utilise le même endpoint en mode format=csv)
     document.getElementById('export').onclick = ()=>{
       const url = `/api/admin/ribs-list?status=${encodeURIComponent(statusEl.value)}&limit=10000&offset=0&search=${encodeURIComponent(searchEl.value.trim())}&format=csv`;
       const a = document.createElement('a');
@@ -182,21 +185,20 @@
       a.download = 'export-ribs.csv';
       a.click();
     };
-
-    // délégation des clics sur le tableau
+  
+    // Délégation des clics sur le tableau
     tbody.addEventListener('click', (e)=>{
       const btn = e.target.closest('button[data-action]');
       if(!btn) return;
       const id = btn.getAttribute('data-id');
       const action = btn.getAttribute('data-action');
-      if(action==='approve') setStatus(id, 'approved');
+      if(action==='approve') setStatus(id, 'validated');
       else if(action==='reject') setStatus(id, 'rejected');
       else if(action==='proof') openProof(id);
     });
-
-    // auto: load première fois
-    // (tu peux commenter si tu préfères cliquer "Charger")
+  
+    // Si tu veux charger automatiquement au premier affichage :
     // load(true);
-  </script>
+  </script> 
 </body>
 </html>
