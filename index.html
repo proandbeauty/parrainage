@@ -8,12 +8,12 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <style>
     :root {
-      --bg: #0b0f14;        /* fond sombre chic */
-      --card: #121821;      /* carte */
-      --muted: #9fb0c3;     /* texte secondaire */
-      --text: #eaf2fb;      /* texte principal */
-      --accent: #5dd4a3;    /* accent bouton */
-      --accent-2: #87e6be;  /* hover */
+      --bg: #0b0f14;
+      --card: #121821;
+      --muted: #9fb0c3;
+      --text: #eaf2fb;
+      --accent: #5dd4a3;
+      --accent-2: #87e6be;
       --error: #ff6b6b;
       --success: #64dfb8;
     }
@@ -24,18 +24,18 @@
       display: grid; place-items: center; min-height: 100vh; padding: 24px;
     }
     .wrap { max-width: 780px; width: 100%; }
-    .card { background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
       border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 28px; backdrop-filter: blur(6px);
       box-shadow: 0 8px 40px rgba(0,0,0,0.45);
     }
     header { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
     .logo { display:inline-flex; align-items:center; gap:10px; }
-    .logo svg { width:34px; height:34px; }
     .brand { font-weight:800; letter-spacing:.2px; }
     h1 { margin: 8px 0 8px 0; font-size: 26px; letter-spacing: 0.2px; }
     p.lead { margin: 0 0 20px; color: var(--muted); }
     form { display: grid; gap: 12px; margin-top: 12px; }
-    label { font-size: 14px; color: var(--muted); }
+    label { font-size: 14px; color: var(--muted); display:block; }
     input[type="text"], input[type="email"], input[type="tel"] {
       width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12);
       background: #0f141c; color: var(--text);
@@ -50,7 +50,7 @@
     .success { color: var(--success); font-size: 15px; }
     .center { text-align: center; }
     .codebox { margin: 18px 0; padding: 14px; background: #0f141c; border-radius: 12px; border: 1px dashed rgba(255,255,255,0.15); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 18px; }
-    .actions { display: flex; gap: 10px; justify-content: center; }
+    .actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
     .foot { margin-top: 12px; text-align: center; color: var(--muted); font-size: 12px; }
     details.policy { margin-top:12px; padding:14px; background:#0f141c; border-radius:12px; border:1px solid rgba(255,255,255,0.08); }
     details.policy summary { cursor:pointer; user-select:none; color: var(--accent); font-weight:600; }
@@ -59,16 +59,18 @@
 </head>
 <body>
   <div class="wrap">
+    <!-- ÉTAPE 1 : FORMULAIRE -->
     <div class="card" id="step1">
       <header>
         <div class="logo" aria-label="Pro&Beauty">
-          <!-- Logo image (remplace src par ton fichier) -->
           <img src="./Logo Pro&Beauty.png" alt="Pro&Beauty" style="width:60px;height:60px;object-fit:contain;border-radius:6px;background:#0f141c;border:1px solid rgba(255,255,255,0.15);padding:2px;"/>
           <div class="brand">Pro&Beauty</div>
         </div>
       </header>
+
       <h1>Programme de parrainage</h1>
-      <p class="lead">Inscrivez‑vous en 30 secondes : recevez votre <strong>code parrain</strong> à partager à vos clientes et partenaires.</p>
+      <p class="lead">Inscrivez-vous en 30 secondes : recevez votre <strong>code parrain</strong> à partager à vos clientes et partenaires.</p>
+
       <form id="referral-form" novalidate style="margin-top:12px;">
         <div class="row">
           <div>
@@ -80,6 +82,7 @@
             <input id="last_name" name="last_name" type="text" placeholder="Dupont" required />
           </div>
         </div>
+
         <div class="row">
           <div>
             <label for="email">Email</label>
@@ -90,13 +93,18 @@
             <input id="phone" name="phone" type="tel" placeholder="06 12 34 …" required />
           </div>
         </div>
+
         <label for="brand">Marque d’origine (optionnel)</label>
         <input id="brand" name="brand" type="text" placeholder="Ex. CosméNova" />
+
+        <label for="sponsor">Code parrain (commercial) — optionnel</label>
+        <input id="sponsor" name="sponsor" type="text" placeholder="Ex. PNB-AB1234" />
 
         <div class="consent">
           <input id="consent" type="checkbox" required aria-label="Consentement RGPD" />
           <label for="consent">J’accepte d’être contacté au sujet du programme de parrainage et je reconnais avoir lu la <a href="#" onclick="document.getElementById('policy').open=true;return false;">politique de confidentialité</a>.</label>
         </div>
+
         <button class="btn" type="submit">Valider et générer mon code</button>
         <div id="msg" class="error" role="alert" aria-live="polite"></div>
 
@@ -120,39 +128,30 @@
       </form>
     </div>
 
+    <!-- ÉTAPE 2 : CODE GÉNÉRÉ -->
     <div class="card center" id="step2" style="display:none;">
       <h1>Votre code parrain</h1>
       <p class="lead">Partagez ce code à vos clientes. Lors de l’inscription, elles n’auront qu’à le fournir.</p>
+
       <div id="code" class="codebox">PNB-XXXXXX</div>
+
       <div class="actions">
         <button class="btn" id="copyBtn">Copier</button>
         <button class="btn" id="qrBtn">Afficher le QR code</button>
       </div>
+
       <canvas id="qrcanvas" style="display:none; margin:16px auto; width:180px; height:180px;"></canvas>
-      <p class="foot">Gardez ce code précieusement. Un email de confirmation peut vous être envoyé ultérieurement.</p>
+      <p class="foot">Gardez ce code précieusement. Un email de confirmation vous a été envoyé.</p>
     </div>
   </div>
 
-  <!-- Supabase JS v2 -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- Simple QR generator -->
+  <!-- QR Code lib -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 
   <script>
-  // ===== CONFIG =====
-  const SUPABASE_URL = "https://tpwkptzlhxitllugmlho.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwd2twdHpsaHhpdGxsdWdtbGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA1MTgzMTAsImV4cCI6MjA3NjA5NDMxMH0.zm782jT62rG7WzuPs7FL0Kv9oizkArvOCPLUoGYh3nw";
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-  function slug2(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z]/g,'');}
-  function rand4(){return Math.floor(Math.random()*10_000).toString().padStart(4,'0');}
-  function checksum(str){let sum=0; for(const c of str){sum += c.charCodeAt(0);} return String(sum % 97).padStart(2,'0');}
-  function makeReferralCode(first, last){
-    const p = (slug2(first).slice(0,2) || 'XX');
-    const n = (slug2(last).slice(0,2) || 'YY');
-    const base = `${p}${n}${rand4()}`;
-    return `PNB-${base}${checksum(base)}`;
-  }
+  // ====== CONFIG PARTAGE (URL cible du QR) ======
+  // Si tu veux que le QR renvoie vers une autre page, modifie l'URL ci-dessous :
+  const SHARE_BASE_URL = 'https://www.proandbeauty.com';
 
   const form = document.getElementById('referral-form');
   const msg = document.getElementById('msg');
@@ -163,68 +162,67 @@
   const qrBtn = document.getElementById('qrBtn');
   const qrCanvas = document.getElementById('qrcanvas');
 
+  // Soumission : on délègue tout au serveur (/api/register-commercial)
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    msg.textContent = '⏳ Envoi en cours...';
+    msg.textContent = '⏳ Enregistrement…';
 
     const first_name = document.getElementById('first_name').value.trim();
     const last_name  = document.getElementById('last_name').value.trim();
     const email      = document.getElementById('email').value.trim();
     const phone      = document.getElementById('phone').value.trim();
     const brand      = document.getElementById('brand').value.trim() || null;
+    const sponsor    = document.getElementById('sponsor').value.trim() || null;
     const consent    = document.getElementById('consent').checked;
 
     if(!first_name || !last_name){ msg.textContent = 'Prénom et nom sont requis.'; return; }
     if(!email || !phone){ msg.textContent = 'Renseignez votre email et votre téléphone.'; return; }
     if(!consent){ msg.textContent = 'Merci d’accepter la mention de consentement.'; return; }
 
-    const referral_code = makeReferralCode(first_name, last_name);
-
-    // 1) INSERT Supabase
-    msg.textContent = '⏳ Enregistrement...';
-    const { error } = await supabase
-      .from('referrers')
-      .insert([{ first_name, last_name, email, phone, source_brand: brand, referral_code }]);
-    if (error) {
-      msg.textContent = '❌ Erreur d’enregistrement. Vérifiez la table Supabase.';
-      console.error('Supabase error:', error);
-      return;
-    }
-
-    // 2) Envoi de l’email (Vercel => /api/send-confirmation)
-    msg.textContent = '⏳ Envoi de l’email...';
     try {
-      const r = await fetch('/api/send-confirmation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, first_name, referral_code })
+      const r = await fetch('/api/register-commercial', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ first_name, last_name, email, phone, source_brand: brand, sponsor })
       });
-      const txt = await r.text();
-      if (!r.ok) {
-        msg.textContent = '⚠️ Email non confirmé : ' + txt;
-        console.warn('send-confirmation:', r.status, txt);
-      } else {
-        msg.textContent = ''; // OK
+      const data = await r.json();
+      if (!r.ok || !data.ok) {
+        msg.textContent = '❌ ' + (data.error || 'Erreur serveur');
+        return;
       }
-    } catch (e3) {
-      msg.textContent = '⚠️ Problème d’envoi email.';
-      console.error(e3);
+
+      // Code renvoyé par le serveur
+      const referral_code = data.referral_code;
+      codeBox.textContent = referral_code;
+
+      // Passage à l'étape 2
+      msg.textContent = '';
+      step1.style.display = 'none';
+      step2.style.display = 'block';
+
+      // Prépare le QR avec ?rc=CODE
+      const shareUrl = `${SHARE_BASE_URL}?rc=${encodeURIComponent(referral_code)}`;
+      qrBtn.onclick = () => {
+        qrCanvas.style.display = 'block';
+        QRCode.toCanvas(qrCanvas, shareUrl, { width: 180, margin: 1 }, (error) => {
+          if (error) console.error(error);
+        });
+      };
+
+      // Copier le code
+      copyBtn.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(referral_code);
+          alert('Code copié dans le presse-papiers.');
+        } catch {
+          alert('Impossible de copier automatiquement. Sélectionnez et copiez le code manuellement.');
+        }
+      };
+    } catch (err) {
+      console.error(err);
+      msg.textContent = '❌ Erreur réseau';
     }
-
-    // 3) Étape 2
-    codeBox.textContent = referral_code;
-    step1.style.display = 'none';
-    step2.style.display = 'block';
   });
-
-  const SHARE_URL = 'https://www.proandbeauty.com';
-  qrBtn.addEventListener('click', () => {
-    qrCanvas.style.display = 'block';
-    QRCode.toCanvas(qrCanvas, SHARE_URL, { width: 180, margin: 1 }, (error) => {
-      if (error) console.error(error);
-    });
-  });
-
   </script>
 </body>
 </html>
