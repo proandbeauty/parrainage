@@ -1,33 +1,28 @@
-// /api/me/update-profile.js
-export const config = { runtime: 'nodejs' };
-import { createClient } from '@supabase/supabase-js';
-import { verifyAuth } from './_auth';
-
-const SUPABASE_URL = 'https://tpwkptzlhxitllugmlho.supabase.co';
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+// api/me/update-profile.js
+import { requireAuth, send } from './_auth.js';
 
 export default async function handler(req, res) {
-  try{
-    if (req.method !== 'POST') return res.status(405).json({ error:'Method Not Allowed' });
-    const user = verifyAuth(req);
-    if (!user) return res.status(401).json({ error:'unauthorized' });
+  try {
+    if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
 
+    const { supabase, user } = await requireAuth(req);
     const { first_name, last_name, phone } = req.body || {};
-    const patch = {};
-    if (typeof first_name === 'string') patch.first_name = first_name;
-    if (typeof last_name  === 'string') patch.last_name  = last_name;
-    if (typeof phone      === 'string') patch.phone      = phone;
-    if (!Object.keys(patch).length) return res.status(400).json({ error:'aucune donnée' });
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('referrers')
-      .update(patch)
-      .eq('id', user.sub)
-      .select('id, first_name, last_name, email, phone')
-      .single();
+      .update({
+        first_name: first_name ?? null,
+        last_name:  last_name  ?? null,
+        phone:      phone      ?? null
+      })
+      .eq('id', user.id);
 
-    if (error) return res.status(500).json({ error:error.message });
-    return res.status(200).json({ ok:true, me:data });
-  }catch(e){ console.error(e); return res.status(500).json({ error:'server' }); }
+    if (error) return send(res, 500, { error: 'Update failed' });
+
+    return send(res, 200, { ok: true });
+  } catch (e) {
+    if (Array.isArray(e)) return send(res, e[0], { error: e[1] });
+    console.error(e);
+    return send(res, 500, { error: 'Server error' });
+  }
 }

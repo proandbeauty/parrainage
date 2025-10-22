@@ -1,16 +1,45 @@
-// /api/me/_auth.js
-import crypto from 'crypto';
-const USER_JWT_SECRET = process.env.USER_JWT_SECRET || 'dev-secret-change-me';
+// api/me/_auth.js
+import jwt from 'jsonwebtoken';
+import { createClient } from '@supabase/supabase-js';
 
-export function verifyAuth(req) {
-  const auth = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  if (!auth) return null;
-  const [h,b,sig] = auth.split('.');
-  if (!h || !b || !sig) return null;
-  const data = `${h}.${b}`;
-  const expected = crypto.createHmac('sha256', USER_JWT_SECRET).update(data).digest('base64url');
-  if (expected !== sig) return null;
-  const payload = JSON.parse(Buffer.from(b, 'base64url').toString('utf8'));
-  if (payload.exp && payload.exp < Math.floor(Date.now()/1000)) return null;
-  return payload; // { sub, email, exp }
+export function getSupabase() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_KEY; // service_role
+  if (!url || !key) throw new Error('Missing Supabase env (SUPABASE_URL / SUPABASE_SERVICE_KEY)');
+  return createClient(url, key);
+}
+
+/**
+ * Vérifie le Bearer token, renvoie { supabase, user }
+ * Lève [status, message] en cas d’erreur.
+ */
+export async function requireAuth(req) {
+  const auth = req.headers?.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  if (!token) throw [401, 'Missing token'];
+
+  // Vérifie notre JWT utilisateur
+  let payload;
+  try {
+    payload = jwt.verify(token, process.env.USER_JWT_SECRET);
+  } catch {
+    throw [401, 'Invalid token'];
+  }
+
+  const supabase = getSupabase();
+
+  // On retrouve l’utilisateur dans referrers via sub (son id)
+  const { data: user, error } = await supabase
+    .from('referrers')
+    .select('*')
+    .eq('id', payload.sub)
+    .single();
+
+  if (error || !user) throw [401, 'User not found'];
+  return { supabase, user };
+}
+
+// petit helper de réponse JSON
+export function send(res, status, body) {
+  res.status(status).json(body);
 }
