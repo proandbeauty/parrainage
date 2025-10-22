@@ -8,63 +8,59 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-/**
- * GET /api/admin/export-commissions?status=all|pending|approved|paid
- * Headers: Authorization: Bearer <ADMIN_TOKEN>
- * Renvoie un CSV.
- */
+// Helpers
+function csvEscape(val) {
+  if (val == null) return '';
+  const s = String(val).replace(/"/g, '""');
+  return `"${s}"`;
+}
+
 export default async function handler(req, res) {
   try {
+    if (req.method !== 'GET') return res.status(405).json({ error: 'Method Not Allowed' });
+
+    // Admin auth
     const auth = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-    if (!ADMIN_TOKEN || auth !== ADMIN_TOKEN) return res.status(401).end('unauthorized');
+    if (!ADMIN_TOKEN || auth !== ADMIN_TOKEN) return res.status(401).json({ error: 'unauthorized' });
 
-    const status = (req.query.status || 'all').toString();
+    // Filtres optionnels
+    const { status, from, to } = req.query;
+    let query = supabase.from('v_commissions_detailed').select('*').order('commission_created_at', { ascending: false });
 
-    let q = supabase
-      .from('commissions')
-      .select(`
-        id, amount, currency, status, role, created_at,
-        sale:sales(id, amount, currency, order_id, created_at),
-        beneficiary:referrers(id, first_name, last_name, email, referral_code)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(5000);
+    if (status) query = query.eq('status', status);
+    if (from)   query = query.gte('commission_created_at', from);
+    if (to)     query = query.lte('commission_created_at', to);
 
-    if (status !== 'all') q = q.eq('status', status);
+    // On exporte “beaucoup” (tu peux ajuster)
+    const { data, error } = await query.limit(50000);
+    if (error) return res.status(500).json({ error: 'query failed', detail: error.message });
 
-    const { data, error } = await q;
-    if (error) return res.status(500).end(error.message);
+    // Construit CSV
+    const headers = [
+      'commission_id','commission_created_at','status','role',
+      'commission_amount','commission_currency',
+      'sale_id','order_id','sale_amount','sale_currency','sale_created_at',
+      'beneficiary_id','first_name','last_name','email','referral_code'
+    ];
+    const lines = [headers.map(csvEscape).join(',')];
 
-    const rows = (data || []).map(r => ({
-      commission_id: r.id,
-      created_at: r.created_at,
-      status: r.status,
-      role: r.role,
-      amount: Number(r.amount).toFixed(2),
-      currency: r.currency,
-      sale_id: r.sale?.id || '',
-      order_id: r.sale?.order_id || '',
-      sale_amount: r.sale ? Number(r.sale.amount).toFixed(2) : '',
-      beneficiary_name: `${r.beneficiary?.first_name || ''} ${r.beneficiary?.last_name || ''}`.trim(),
-      beneficiary_email: r.beneficiary?.email || '',
-      referral_code: r.beneficiary?.referral_code || ''
-    }));
+    for (const r of data || []) {
+      lines.push([
+        r.commission_id, r.commission_created_at, r.status, r.role,
+        r.commission_amount, r.commission_currency,
+        r.sale_id, r.order_id, r.sale_amount, r.sale_currency, r.sale_created_at,
+        r.beneficiary_id, r.first_name, r.last_name, r.email, r.referral_code
+      ].map(csvEscape).join(','));
+    }
 
-    const header = Object.keys(rows[0] || {
-      commission_id:'', created_at:'', status:'', role:'', amount:'', currency:'',
-      sale_id:'', order_id:'', sale_amount:'', beneficiary_name:'', beneficiary_email:'', referral_code:''
-    });
-
-    const csv = [
-      header.join(','),
-      ...rows.map(obj => header.map(k => String(obj[k]).replace(/"/g,'""')).map(v=>`"${v}"`).join(','))
-    ].join('\n');
+    const csv = lines.join('\r\n');
+    const filename = `export-commissions-${new Date().toISOString().slice(0,10)}.csv`;
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="commissions_${status}.csv"`);
-    return res.status(200).send(csv);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.status(200).send(csv);
   } catch (e) {
-    console.error(e);
-    return res.status(500).end('server');
+    console.error('export-commissions fatal:', e);
+    res.status(500).json({ error: 'server error' });
   }
 }

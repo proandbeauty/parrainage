@@ -8,54 +8,35 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-/**
- * GET /api/admin/list-commissions?status=all|pending|approved|paid&limit=50&offset=0&search=dupont
- * Headers: Authorization: Bearer <ADMIN_TOKEN>
- */
 export default async function handler(req, res) {
   try {
-    // Auth simple par Bearer token
+    if (req.method !== 'GET') return res.status(405).json({ error: 'Method Not Allowed' });
+
     const auth = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
     if (!ADMIN_TOKEN || auth !== ADMIN_TOKEN) return res.status(401).json({ error: 'unauthorized' });
 
-    const status = (req.query.status || 'all').toString();
-    const limit = Math.min(200, Number(req.query.limit || 50));
-    const offset = Math.max(0, Number(req.query.offset || 0));
-    const search = (req.query.search || '').trim();
+    const page  = Math.max(1, parseInt(req.query.page || '1', 10));
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit || '50', 10)));
+    const from  = (page - 1) * limit;
+    const to    = from + limit - 1;
 
-    // On charge commissions + infos vente + infos bénéficiaire
-    let q = supabase
-      .from('commissions')
-      .select(`
-        id, amount, currency, status, role, created_at,
-        sale:sales(id, amount, currency, order_id, created_at),
-        beneficiary:referrers(id, first_name, last_name, email, referral_code)
-      `)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+    const { status } = req.query;
 
-    if (status !== 'all') q = q.eq('status', status);
+    let q = supabase.from('v_commissions_detailed').select('*', { count: 'exact' })
+      .order('commission_created_at', { ascending: false })
+      .range(from, to);
 
-    // Recherche texte côté client (simple)
-    const { data, error } = await q;
-    if (error) return res.status(500).json({ error: error.message });
+    if (status) q = q.eq('status', status);
 
-    let items = data || [];
-    if (search) {
-      const s = search.toLowerCase();
-      items = items.filter((r) => {
-        const b = r.beneficiary || {};
-        const hay = [
-          b.first_name, b.last_name, b.email, b.referral_code,
-          r.sale?.order_id, r.role, r.status
-        ].filter(Boolean).join(' ').toLowerCase();
-        return hay.includes(s);
-      });
-    }
+    const { data, error, count } = await q;
+    if (error) return res.status(500).json({ error: 'query failed', detail: error.message });
 
-    return res.status(200).json({ ok: true, items, nextOffset: offset + items.length });
+    const total = count || 0;
+    const hasMore = page * limit < total;
+
+    res.status(200).json({ items: data || [], page, limit, total, hasMore });
   } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: 'server' });
+    console.error('list-commissions fatal:', e);
+    res.status(500).json({ error: 'server error' });
   }
 }

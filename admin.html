@@ -61,56 +61,156 @@
     const tokenEl = document.getElementById('token');
     const statusEl = document.getElementById('status');
     const searchEl = document.getElementById('search');
-    let offset = 0, lastBatch = [];
+
+    // ---- Nouvel état pagination (compatible page/limit OU offset) ----
+    let page = 1, limit = 50, hasMore = true;
+    let offset = 0;              // pour compat avec anciens endpoints
+    let lastBatch = [];
 
     // garde le token (local)
     tokenEl.value = localStorage.getItem('pnb_admin_token') || '';
     tokenEl.addEventListener('change', ()=> localStorage.setItem('pnb_admin_token', tokenEl.value.trim()));
 
+    // ---- Normalise l'item (compatible "flat" OU "imbriqué") ----
+    function normalize(item){
+      // format "flat" (venant d'une vue v_commissions_detailed par ex.)
+      if (!item.beneficiary && !item.sale) {
+        return {
+          id: item.commission_id || item.id,
+          amount: item.commission_amount ?? item.amount,
+          currency: item.commission_currency ?? item.currency,
+          status: item.status,
+          role: item.role,
+          created_at: item.commission_created_at || item.created_at,
+          beneficiary: {
+            first_name: item.first_name,
+            last_name: item.last_name,
+            email: item.email,
+            referral_code: item.referral_code
+          },
+          sale: {
+            id: item.sale_id,
+            order_id: item.order_id,
+            amount: item.sale_amount,
+            currency: item.sale_currency,
+            created_at: item.sale_created_at
+          }
+        };
+      }
+      // format "imbriqué" (ton format d’origine)
+      return {
+        id: item.id,
+        amount: item.amount,
+        currency: item.currency,
+        status: item.status,
+        role: item.role,
+        created_at: item.created_at,
+        beneficiary: item.beneficiary || {},
+        sale: item.sale || {}
+      };
+    }
+
     async function load(reset=true){
       try{
-        if(reset){ offset = 0; tbody.innerHTML = '<tr><td colspan="4" class="muted">Chargement…</td></tr>'; }
-        const url = `/api/admin/list-commissions?status=${encodeURIComponent(statusEl.value)}&limit=50&offset=${offset}&search=${encodeURIComponent(searchEl.value.trim())}`;
-        const r = await fetch(url, { headers:{ Authorization:'Bearer '+tokenEl.value.trim() } });
+        const token = tokenEl.value.trim();
+        if(!token){ msg.textContent='Saisissez d’abord le token admin.'; return; }
+
+        if(reset){
+          // reset des 2 modes de pagination
+          page = 1; hasMore = true;
+          offset = 0;
+          tbody.innerHTML = '<tr><td colspan="4" class="muted">Chargement…</td></tr>';
+        }
+
+        // On essaye d'abord le mode "page/limit" (nouvelle API)
+        const base = '/api/admin/list-commissions';
+        const q = new URLSearchParams({
+          status: statusEl.value,
+          search: searchEl.value.trim(),
+          page: String(page),
+          limit: String(limit)
+        }).toString();
+
+        let r = await fetch(`${base}?${q}`, {
+          headers:{ Authorization:'Bearer '+token }
+        });
+
+        // Si l’endpoint ne comprend pas page/limit, on retombe sur offset (ancien)
+        if (r.status === 400 || r.status === 404 || r.status === 422) {
+          const q2 = new URLSearchParams({
+            status: statusEl.value,
+            search: searchEl.value.trim(),
+            limit: String(limit),
+            offset: String(offset)
+          }).toString();
+          r = await fetch(`${base}?${q2}`, { headers:{ Authorization:'Bearer '+token } });
+        }
+
         const j = await r.json();
         if(!r.ok){ msg.textContent = j.error || 'Erreur'; return; }
         msg.textContent = '';
 
-        if(reset) tbody.innerHTML = '';
-        lastBatch = j.items || [];
-        if(lastBatch.length===0 && offset===0) tbody.innerHTML = '<tr><td colspan="4" class="muted">Aucune commission.</td></tr>';
+        // On récupère les items, en supportant j.items ou j.rows
+        const items = Array.isArray(j.items) ? j.items : (Array.isArray(j.rows) ? j.rows : []);
+        lastBatch = items.map(normalize);
 
-        for(const c of lastBatch){
-          const b = c.beneficiary || {};
-          const s = c.sale || {};
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>
-              <div><b>${Number(c.amount).toFixed(2)} ${c.currency}</b> <span class="pill">${c.status}</span> <span class="pill">${c.role}</span></div>
-              <div class="muted">${new Date(c.created_at).toLocaleString()}</div>
-              <div class="muted">ID: ${c.id}</div>
-            </td>
-            <td>
-              <div><b>${(b.first_name||'')+' '+(b.last_name||'')}</b></div>
-              <div class="muted">${b.email || ''}</div>
-              <div class="muted">Code: ${b.referral_code || ''}</div>
-            </td>
-            <td>
-              <div>Commande: <b>${s.order_id || '-'}</b></div>
-              <div class="muted">Vente: ${s.id || ''}</div>
-              <div class="muted">Montant: ${s.amount!=null ? Number(s.amount).toFixed(2)+' '+(s.currency||'') : '-'}</div>
-              <div class="muted">${s.created_at ? new Date(s.created_at).toLocaleString() : ''}</div>
-            </td>
-            <td>
-              <button data-id="${c.id}" data-to="approved">Approuver</button>
-              <button data-id="${c.id}" data-to="paid">Marquer payé</button>
-            </td>
-          `;
-          tbody.appendChild(tr);
+        // si reset, on efface le tableau avant d’ajouter
+        if(reset) tbody.innerHTML = '';
+
+        if(lastBatch.length===0 && (page===1 || offset===0)){
+          tbody.innerHTML = '<tr><td colspan="4" class="muted">Aucune commission.</td></tr>';
+        } else {
+          for(const c of lastBatch){
+            const b = c.beneficiary || {};
+            const s = c.sale || {};
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>
+                <div><b>${Number(c.amount).toFixed(2)} ${c.currency || ''}</b>
+                  <span class="pill">${c.status}</span> <span class="pill">${c.role}</span></div>
+                <div class="muted">${c.created_at ? new Date(c.created_at).toLocaleString() : ''}</div>
+                <div class="muted">ID: ${c.id || ''}</div>
+              </td>
+              <td>
+                <div><b>${(b.first_name||'')+' '+(b.last_name||'')}</b></div>
+                <div class="muted">${b.email || ''}</div>
+                <div class="muted">Code: ${b.referral_code || ''}</div>
+              </td>
+              <td>
+                <div>Commande: <b>${s.order_id || '-'}</b></div>
+                <div class="muted">Vente: ${s.id || ''}</div>
+                <div class="muted">Montant: ${s.amount!=null ? Number(s.amount).toFixed(2)+' '+(s.currency||'') : '-'}</div>
+                <div class="muted">${s.created_at ? new Date(s.created_at).toLocaleString() : ''}</div>
+              </td>
+              <td>
+                <button data-id="${c.id}" data-to="approved">Approuver</button>
+                <button data-id="${c.id}" data-to="paid">Marquer payé</button>
+              </td>
+            `;
+            tbody.appendChild(tr);
+          }
         }
 
-        offset = j.nextOffset || (offset + lastBatch.length);
-      }catch(e){ msg.textContent='Erreur chargement'; console.error(e); }
+        // mise à jour pagination
+        if (typeof j.hasMore === 'boolean') {
+          hasMore = j.hasMore;
+          if (hasMore) page += 1;
+        } else {
+          // fallback offset
+          offset = j.nextOffset != null ? j.nextOffset : (offset + lastBatch.length);
+          hasMore = lastBatch.length === limit; // approx
+          if (!hasMore) page += 1; // ne bloque pas le bouton si l’API repasse ensuite en page
+        }
+
+        // état du bouton "Charger +"
+        const moreBtn = document.getElementById('more');
+        moreBtn.disabled = !hasMore;
+        moreBtn.textContent = hasMore ? 'Charger +' : 'Plus de résultats';
+
+      }catch(e){
+        msg.textContent='Erreur chargement';
+        console.error(e);
+      }
     }
 
     async function changeStatus(id, to){
@@ -130,14 +230,35 @@
     }
 
     document.getElementById('load').onclick = ()=> load(true);
-    document.getElementById('more').onclick = ()=> load(false);
-    document.getElementById('export').onclick = ()=>{
-      const url = `/api/admin/export-commissions?status=${encodeURIComponent(statusEl.value)}`;
-      const a = document.createElement('a');
-      a.href = url; a.target = '_blank';
-      a.rel = 'noopener';
-      a.download = '';
-      a.click();
+    document.getElementById('more').onclick = ()=> {
+      if (!hasMore) return;
+      load(false);
+    };
+
+    // --- Export CSV : on télécharge réellement le fichier (avec le token) ---
+    document.getElementById('export').onclick = async ()=>{
+      try{
+        const token = tokenEl.value.trim();
+        if(!token){ alert('Saisissez d’abord le token admin.'); return; }
+        const url = `/api/admin/export-commissions?status=${encodeURIComponent(statusEl.value)}&search=${encodeURIComponent(searchEl.value.trim())}`;
+        const res = await fetch(url, { headers:{ Authorization:'Bearer '+token } });
+        if(!res.ok){
+          const t = await res.text();
+          alert('Export impossible : '+t);
+          return;
+        }
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `export-commissions-${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        URL.revokeObjectURL(a.href);
+        a.remove();
+      }catch(e){
+        console.error(e);
+        alert('Erreur export CSV.');
+      }
     };
 
     // delegation boutons actions
