@@ -63,9 +63,9 @@ export default async function handler(req, res) {
     ])
 
     if (insertError) {
-      console.error(insertError)
-      return res.status(500).json({ error: 'Erreur Supabase' })
-    }
+        console.error('Supabase insert error:', insertError)
+        return res.status(500).json({ error: insertError.message })
+      }
 
     // Envoi d’un email via Brevo (optionnel)
     await fetch('https://api.brevo.com/v3/smtp/email', {
