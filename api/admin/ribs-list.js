@@ -5,6 +5,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 )
 
+// Champs autorisés pour le tri (côté table bank_accounts)
+const SORTABLE = new Set(['created_at', 'holder_name', 'status', 'iban_masked'])
+
 export default async function handler(req, res) {
   try {
     const auth = req.headers.authorization || ''
@@ -17,28 +20,32 @@ export default async function handler(req, res) {
       limit = 50,
       offset = 0,
       search = '',
-      format = 'json'
+      format = 'json',
+      sort_by = 'created_at',
+      order = 'desc' // 'asc' | 'desc'
     } = req.query
 
-    // Filtrage
+    const sortBy = SORTABLE.has(String(sort_by)) ? String(sort_by) : 'created_at'
+    const sortDir = (String(order).toLowerCase() === 'asc') ? true : false // Supabase: ascending: true/false
+
     let query = supabase
       .from('bank_accounts')
       .select(`
         id, created_at, status, iban_masked, iban, bic, holder_name, doc_path,
         referrer:referrer_id ( id, first_name, last_name, email, referral_code )
       `, { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1)
+      .order(sortBy, { ascending: sortDir })
+      .range(parseInt(offset,10), parseInt(offset,10) + parseInt(limit,10) - 1)
 
     if (status !== 'all') query = query.eq('status', status)
     if (search) {
-      query = query.or(`holder_name.ilike.%${search}%,iban.ilike.%${search}%,bic.ilike.%${search}%`)
+      // recherche simple sur colonnes locales (pas sur la jointure)
+      query = query.or(`holder_name.ilike.%${search}%,iban.ilike.%${search}%,iban_masked.ilike.%${search}%,bic.ilike.%${search}%`)
     }
 
     const { data, error } = await query
     if (error) throw error
 
-    // --- [OPTION CSV] ---
     if (format === 'csv') {
       res.setHeader('Content-Type', 'text/csv; charset=utf-8')
       res.setHeader('Content-Disposition', 'attachment; filename="export-ribs.csv"')
@@ -74,11 +81,10 @@ export default async function handler(req, res) {
       return res.status(200).send(csv)
     }
 
-    // --- [FORMAT JSON PAR DÉFAUT] ---
     return res.status(200).json({
       ok: true,
       items: data,
-      nextOffset: parseInt(offset) + data.length
+      nextOffset: parseInt(offset,10) + (data?.length || 0)
     })
   } catch (err) {
     console.error('ribs-list error', err)

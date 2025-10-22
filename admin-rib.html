@@ -46,14 +46,15 @@
 
       <table id="tab">
         <thead>
-          <tr>
-            <th>RIB</th>
-            <th>Titulaire</th>
-            <th>IBAN</th>
-            <th>Justificatif</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
+            <tr>
+              <th data-sort="created_at" style="cursor:pointer">RIB ▲▼</th>
+              <th data-sort="referrer"  style="cursor:default">Titulaire</th>
+              <th data-sort="holder_name" style="cursor:pointer">IBAN (titulaire) ▲▼</th>
+              <th style="cursor:default">Justificatif</th>
+              <th style="cursor:default">Actions</th>
+            </tr>
+          </thead>
+          
         <tbody id="tbody">
           <tr><td colspan="5" class="muted">Cliquez sur “Charger”.</td></tr>
         </tbody>
@@ -74,6 +75,10 @@
   
     let offset = 0, lastBatch = [];
   
+    // TRI: état courant (par défaut: created_at desc)
+    let sortBy  = 'created_at';
+    let sortDir = 'desc'; // 'asc' | 'desc'
+  
     // Mémorise le token admin
     tokenEl.value = localStorage.getItem('pnb_admin_token') || '';
     tokenEl.addEventListener('change', () => localStorage.setItem('pnb_admin_token', tokenEl.value.trim()));
@@ -88,10 +93,29 @@
       return clean.slice(0,4) + ' •••• •••• •••• ' + clean.slice(-4);
     }
   
+    function headerLabel(name){
+      // met une petite flèche sur la colonne triée
+      const up = ' ▲', down = ' ▼';
+      if(name==='created_at'){
+        return 'RIB' + (sortBy==='created_at' ? (sortDir==='asc'?up:down) : ' ▲▼');
+      }
+      if(name==='holder_name'){
+        return 'IBAN (titulaire)' + (sortBy==='holder_name' ? (sortDir==='asc'?up:down) : ' ▲▼');
+      }
+      return name;
+    }
+  
+    function refreshHeaderIndicators(){
+      const thCreated = document.querySelector('th[data-sort="created_at"]');
+      const thHolder  = document.querySelector('th[data-sort="holder_name"]');
+      if(thCreated) thCreated.textContent = headerLabel('created_at').replace('created_at','RIB');
+      if(thHolder)  thHolder.textContent  = headerLabel('holder_name').replace('holder_name','IBAN (titulaire)');
+    }
+  
     async function load(reset=true){
       try{
         if(reset){ offset = 0; tbody.innerHTML = '<tr><td colspan="5" class="muted">Chargement…</td></tr>'; }
-        const url = `/api/admin/ribs-list?status=${encodeURIComponent(statusEl.value)}&limit=50&offset=${offset}&search=${encodeURIComponent(searchEl.value.trim())}`;
+        const url = `/api/admin/ribs-list?status=${encodeURIComponent(statusEl.value)}&limit=50&offset=${offset}&search=${encodeURIComponent(searchEl.value.trim())}&sort_by=${encodeURIComponent(sortBy)}&order=${encodeURIComponent(sortDir)}`;
         const r = await fetch(url, { headers:{ Authorization:'Bearer '+tokenEl.value.trim() } });
         const j = await r.json();
         if(!r.ok){ msg.textContent = j.error || 'Erreur'; return; }
@@ -135,6 +159,7 @@
         }
   
         offset = j.nextOffset ?? (offset + lastBatch.length);
+        refreshHeaderIndicators();
       }catch(e){
         console.error(e);
         msg.textContent = 'Erreur chargement';
@@ -143,7 +168,7 @@
   
     async function setStatus(rib_id, status){
       try{
-        const note = ''; // si tu ajoutes un champ "note" plus tard
+        const note = '';
         const r = await fetch('/api/admin/ribs-set-status', {
           method:'POST',
           headers: { 'Content-Type':'application/json', Authorization:'Bearer '+tokenEl.value.trim() },
@@ -159,7 +184,6 @@
   
     async function openProof(rib_id){
       try{
-        // L’endpoint renvoie {ok:true, url:"..."} ; on ouvre cette URL
         const r = await fetch(`/api/admin/ribs-proof?id=${encodeURIComponent(rib_id)}`, {
           headers:{ Authorization:'Bearer '+tokenEl.value.trim() }
         });
@@ -171,19 +195,13 @@
       }
     }
   
-    // Actions de la barre
+    // Actions du bandeau
     document.getElementById('load').onclick = () => load(true);
     document.getElementById('more').onclick = () => load(false);
-  
-    // Export CSV (utilise le même endpoint en mode format=csv)
     document.getElementById('export').onclick = ()=>{
-      const url = `/api/admin/ribs-list?status=${encodeURIComponent(statusEl.value)}&limit=10000&offset=0&search=${encodeURIComponent(searchEl.value.trim())}&format=csv`;
+      const url = `/api/admin/ribs-list?status=${encodeURIComponent(statusEl.value)}&limit=10000&offset=0&search=${encodeURIComponent(searchEl.value.trim())}&format=csv&sort_by=${encodeURIComponent(sortBy)}&order=${encodeURIComponent(sortDir)}`;
       const a = document.createElement('a');
-      a.href = url;
-      a.target = '_blank';
-      a.rel = 'noopener';
-      a.download = 'export-ribs.csv';
-      a.click();
+      a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.download = 'export-ribs.csv'; a.click();
     };
   
     // Délégation des clics sur le tableau
@@ -197,8 +215,23 @@
       else if(action==='proof') openProof(id);
     });
   
-    // Si tu veux charger automatiquement au premier affichage :
+    // Clic sur en-têtes pour trier
+    document.querySelectorAll('th[data-sort]').forEach(th=>{
+      th.addEventListener('click', ()=>{
+        const col = th.getAttribute('data-sort');
+        if(col === 'referrer') return; // pas de tri sur la jointure dans cette version
+        if(sortBy === col){
+          sortDir = (sortDir === 'asc' ? 'desc' : 'asc');
+        } else {
+          sortBy = col;
+          sortDir = 'asc';
+        }
+        load(true);
+      });
+    });
+  
+    // Option: charger direct
     // load(true);
-  </script> 
+  </script>  
 </body>
 </html>
