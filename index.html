@@ -139,99 +139,91 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 
   <script>
-    // ===== CONFIG (remplace si besoin) =====
-    const SUPABASE_URL = "https://tpwkptzlhxitllugmlho.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwd2twdHpsaHhpdGxsdWdtbGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA1MTgzMTAsImV4cCI6MjA3NjA5NDMxMH0.zm782jT62rG7WzuPs7FL0Kv9oizkArvOCPLUoGYh3nw";
-    // ======================================
+  // ===== CONFIG =====
+  const SUPABASE_URL = "https://tpwkptzlhxitllugmlho.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwd2twdHpsaHhpdGxsdWdtbGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA1MTgzMTAsImV4cCI6MjA3NjA5NDMxMH0.zm782jT62rG7WzuPs7FL0Kv9oizkArvOCPLUoGYh3nw";
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  function slug2(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z]/g,'');}
+  function rand4(){return Math.floor(Math.random()*10_000).toString().padStart(4,'0');}
+  function checksum(str){let sum=0; for(const c of str){sum += c.charCodeAt(0);} return String(sum % 97).padStart(2,'0');}
+  function makeReferralCode(first, last){
+    const p = (slug2(first).slice(0,2) || 'XX');
+    const n = (slug2(last).slice(0,2) || 'YY');
+    const base = `${p}${n}${rand4()}`;
+    return `PNB-${base}${checksum(base)}`;
+  }
 
-    function slug2(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z]/g,'');}
-    function rand4(){return Math.floor(Math.random()*10_000).toString().padStart(4,'0');}
-    function checksum(str){let sum=0; for(const c of str){sum += c.charCodeAt(0);} return String(sum % 97).padStart(2,'0');}
-    function makeReferralCode(first, last){
-      const p = (slug2(first).slice(0,2) || 'XX');
-      const n = (slug2(last).slice(0,2) || 'YY');
-      const base = `${p}${n}${rand4()}`;
-      return `PNB-${base}${checksum(base)}`;
-    }
+  const form = document.getElementById('referral-form');
+  const msg = document.getElementById('msg');
+  const step1 = document.getElementById('step1');
+  const step2 = document.getElementById('step2');
+  const codeBox = document.getElementById('code');
+  const copyBtn = document.getElementById('copyBtn');
+  const qrBtn = document.getElementById('qrBtn');
+  const qrCanvas = document.getElementById('qrcanvas');
 
-    const form = document.getElementById('referral-form');
-    const msg = document.getElementById('msg');
-    const step1 = document.getElementById('step1');
-    const step2 = document.getElementById('step2');
-    const codeBox = document.getElementById('code');
-    const copyBtn = document.getElementById('copyBtn');
-    const qrBtn = document.getElementById('qrBtn');
-    const qrCanvas = document.getElementById('qrcanvas');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    msg.textContent = '⏳ Envoi en cours...';
 
-    form.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  msg.textContent = '⏳ Envoi en cours...';   // <- message visible
+    const first_name = document.getElementById('first_name').value.trim();
+    const last_name  = document.getElementById('last_name').value.trim();
+    const email      = document.getElementById('email').value.trim();
+    const phone      = document.getElementById('phone').value.trim();
+    const brand      = document.getElementById('brand').value.trim() || null;
+    const consent    = document.getElementById('consent').checked;
 
-  const first_name = document.getElementById('first_name').value.trim();
-  const last_name  = document.getElementById('last_name').value.trim();
-  const email      = document.getElementById('email').value.trim();
-  const phone      = document.getElementById('phone').value.trim();
-  const brand      = document.getElementById('brand').value.trim() || null;
-  const consent    = document.getElementById('consent').checked;
+    if(!first_name || !last_name){ msg.textContent = 'Prénom et nom sont requis.'; return; }
+    if(!email || !phone){ msg.textContent = 'Renseignez votre email et votre téléphone.'; return; }
+    if(!consent){ msg.textContent = 'Merci d’accepter la mention de consentement.'; return; }
 
-  if(!first_name || !last_name){ msg.textContent = 'Prénom et nom sont requis.'; return; }
-  if(!email || !phone){ msg.textContent = 'Renseignez votre email et votre téléphone.'; return; }
-  if(!consent){ msg.textContent = 'Merci d’accepter la mention de consentement.'; return; }
+    const referral_code = makeReferralCode(first_name, last_name);
 
-  const referral_code = makeReferralCode(first_name, last_name);
-
-  // 1) INSERT Supabase
-  msg.textContent = '⏳ Enregistrement...';
-  let insertError = null;
-  try {
+    // 1) INSERT Supabase
+    msg.textContent = '⏳ Enregistrement...';
     const { error } = await supabase
-      .from('referrers')  // <-- IMPORTANT : la table doit s’appeler referrers
+      .from('referrers')
       .insert([{ first_name, last_name, email, phone, source_brand: brand, referral_code }]);
-    insertError = error || null;
-  } catch (e2) {
-    insertError = e2;
-  }
-
-  if (insertError) {
-    msg.textContent = '❌ Erreur d’enregistrement. Vérifiez la table Supabase.';
-    alert('Erreur Supabase (INSERT). La table/colonnes ne correspondent sans doute pas.\n\nDétail : ' + (insertError.message || insertError));
-    return; // on s’arrête avant l’envoi de l’email
-  }
-
-  // 2) Envoi de l’email (Brevo via fonction Netlify)
-  msg.textContent = '⏳ Envoi de l’email...';
-  try {
-    const r = await fetch('/.netlify/functions/send-confirmation', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, first_name, referral_code })
-    });
-    const txt = await r.text();
-    if (!r.ok) {
-      msg.textContent = '⚠️ Email non confirmé : ' + txt;
-    } else {
-      msg.textContent = ''; // OK
+    if (error) {
+      msg.textContent = '❌ Erreur d’enregistrement. Vérifiez la table Supabase.';
+      console.error('Supabase error:', error);
+      return;
     }
-  } catch (e3) {
-    msg.textContent = '⚠️ Problème d’envoi email.';
-  }
 
-  // 3) Affichage étape 2
-  codeBox.textContent = referral_code;
-  step1.style.display = 'none';
-  step2.style.display = 'block';
-});
+    // 2) Envoi de l’email (Vercel => /api/send-confirmation)
+    msg.textContent = '⏳ Envoi de l’email...';
+    try {
+      const r = await fetch('/api/send-confirmation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, first_name, referral_code })
+      });
+      const txt = await r.text();
+      if (!r.ok) {
+        msg.textContent = '⚠️ Email non confirmé : ' + txt;
+        console.warn('send-confirmation:', r.status, txt);
+      } else {
+        msg.textContent = ''; // OK
+      }
+    } catch (e3) {
+      msg.textContent = '⚠️ Problème d’envoi email.';
+      console.error(e3);
+    }
 
-const SHARE_URL = 'https://www.proandbeauty.com'; // ton site
-
-qrBtn.addEventListener('click', () => {
-  qrCanvas.style.display = 'block';
-  QRCode.toCanvas(qrCanvas, SHARE_URL, { width: 180, margin: 1 }, (error) => {
-    if (error) console.error(error);
+    // 3) Étape 2
+    codeBox.textContent = referral_code;
+    step1.style.display = 'none';
+    step2.style.display = 'block';
   });
-});
+
+  const SHARE_URL = 'https://www.proandbeauty.com';
+  qrBtn.addEventListener('click', () => {
+    qrCanvas.style.display = 'block';
+    QRCode.toCanvas(qrCanvas, SHARE_URL, { width: 180, margin: 1 }, (error) => {
+      if (error) console.error(error);
+    });
+  });
 
   </script>
 </body>
