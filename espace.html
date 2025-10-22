@@ -106,6 +106,30 @@
       <div id="p_msg" class="muted"></div>
     </div>
 
+    <!-- Mon RIB & Paiement -->
+    <div class="card" id="ribCard" style="display:none">
+      <h2>Mon RIB & Paiement</h2>
+      <div class="row">
+        <input id="rib_titulaire" type="text" placeholder="Titulaire du compte" style="min-width:260px">
+        <input id="rib_iban" type="text" placeholder="IBAN" style="min-width:260px">
+        <input id="rib_bic" type="text" placeholder="BIC (optionnel)" style="min-width:180px">
+        <input id="rib_banque" type="text" placeholder="Banque (optionnel)" style="min-width:220px">
+      </div>
+      <div class="row">
+        <input id="rib_file" type="file" accept="image/*,application/pdf">
+        <label class="muted">Justificatif RIB (PDF ou photo) — <b>obligatoire</b></label>
+      </div>
+      <div class="row" style="align-items:center">
+        <input id="rib_rgpd" type="checkbox">
+        <label for="rib_rgpd" class="muted">J’autorise Pro&Beauty à conserver ces données pour mes règlements (RGPD).</label>
+      </div>
+      <div class="row">
+        <button id="rib_save">Enregistrer / Mettre à jour mon RIB</button>
+      </div>
+      <div id="rib_msg" class="muted"></div>
+      <div class="muted" id="rib_status"></div>
+    </div>
+
   </div>
 
   <script>
@@ -114,6 +138,7 @@
     const commCard = document.getElementById('commCard');
     const kidsCard = document.getElementById('kidsCard');
     const profileCard = document.getElementById('profileCard');
+    const ribCard = document.getElementById('ribCard');
 
     const LS_KEY = 'pnb_user_token';
 
@@ -172,6 +197,7 @@
         commCard.style.display='block';
         kidsCard.style.display='block';
         profileCard.style.display='block';
+        ribCard.style.display='block';
 
         // Profil + code + QR
         document.getElementById('me_name').textContent = (j.me.first_name || '')+' '+(j.me.last_name || '');
@@ -229,6 +255,9 @@
         document.getElementById('p_last').value  = j.me.last_name || '';
         document.getElementById('p_phone').value = j.me.phone || '';
 
+        // Charger l'état RIB
+        await loadRIB();
+
       }catch(e){ console.error(e); }
     }
 
@@ -257,6 +286,87 @@
     document.getElementById('logout_btn').onclick = () => {
       clearToken();
       location.reload();
+    };
+
+    /* ======== RIB: JS ======== */
+
+    // Convertit un fichier en base64
+    function fileToBase64(file){
+      return new Promise((res, rej)=>{
+        const reader = new FileReader();
+        reader.onload = () => res(String(reader.result).split(',').pop());
+        reader.onerror = rej;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Charge l’état RIB
+    async function loadRIB(){
+      const msg = document.getElementById('rib_msg');
+      const st  = document.getElementById('rib_status');
+      msg.textContent = 'Chargement du RIB...';
+      try{
+        const r = await fetch('/api/me/get-rib', { headers: authHeaders() });
+        const j = await r.json();
+        if(!r.ok){ msg.textContent = j.error || 'Erreur'; return; }
+        msg.textContent = '';
+        if(j.rib){
+          document.getElementById('rib_titulaire').value = j.rib.titulaire || '';
+          document.getElementById('rib_iban').value      = j.rib.iban || '';
+          document.getElementById('rib_bic').value       = j.rib.bic || '';
+          document.getElementById('rib_banque').value    = j.rib.banque || '';
+          document.getElementById('rib_rgpd').checked    = !!j.rib.rgpd_consent;
+          st.textContent = 'Statut vérification : ' + (j.rib.status || 'pending');
+        } else {
+          st.textContent = 'Aucun RIB enregistré.';
+        }
+      }catch(e){ console.error(e); msg.textContent='Erreur de chargement'; }
+    }
+
+    // Sauvegarde RIB
+    document.getElementById('rib_save').onclick = async () => {
+      const msg = document.getElementById('rib_msg');
+      msg.textContent = 'Envoi...';
+
+      try{
+        const titulaire = document.getElementById('rib_titulaire').value.trim();
+        const iban = document.getElementById('rib_iban').value.trim().replace(/\s+/g,'');
+        const bic = document.getElementById('rib_bic').value.trim() || null;
+        const banque = document.getElementById('rib_banque').value.trim() || null;
+        const rgpd = document.getElementById('rib_rgpd').checked;
+
+        if(!rgpd){ msg.textContent='Cochez la case RGPD.'; return; }
+        if(!titulaire || !iban){ msg.textContent='Titulaire et IBAN requis.'; return; }
+
+        // Fichier justificatif (obligatoire la première fois)
+        const fileInput = document.getElementById('rib_file');
+        let justificatif_path = null;
+
+        if(fileInput.files && fileInput.files[0]){
+          const f = fileInput.files[0];
+          // envoie du fichier vers /api/me/upload-rib
+          const base64 = await fileToBase64(f);
+          const up = await fetch('/api/me/upload-rib', {
+            method:'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ filename: f.name, content_base64: base64, mime: f.type || 'application/octet-stream' })
+          });
+          const uj = await up.json();
+          if(!up.ok){ msg.textContent = uj.error || 'Upload impossible'; return; }
+          justificatif_path = uj.path;
+        }
+
+        const r = await fetch('/api/me/save-rib', {
+          method:'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ titulaire, iban, bic, banque, justificatif_path, rgpd_consent: rgpd })
+        });
+        const j = await r.json();
+        if(!r.ok){ msg.textContent = j.error || 'Erreur'; return; }
+
+        msg.textContent = 'RIB enregistré ✔';
+        await loadRIB();
+      }catch(e){ console.error(e); msg.textContent='Erreur réseau'; }
     };
 
     // Auto: si on a un token stocké → affiche directement le dashboard
