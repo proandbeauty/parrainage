@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pro&Beauty — Mon espace</title>
+  <style>
+    body{margin:0;background:#0b0f14;color:#eaf2fb;font-family:system-ui,-apple-system,Segoe UI,Roboto}
+    .wrap{max-width:1100px;margin:30px auto;padding:0 16px}
+    .card{background:#121821;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:18px;margin-bottom:14px}
+    h1,h2{margin:6px 0 14px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+    input,button{background:#0f141c;border:1px solid rgba(255,255,255,.12);color:#eaf2fb;border-radius:10px;padding:10px}
+    button{background:#5dd4a3;border:none;color:#06281c;font-weight:700;cursor:pointer}
+    button:hover{background:#87e6be}
+    table{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px}
+    th,td{border-bottom:1px solid rgba(255,255,255,.08);padding:8px;vertical-align:top}
+    th{color:#9fb0c3;text-align:left}
+    .muted{color:#9fb0c3}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#0f141c;border:1px solid rgba(255,255,255,.15);font-size:12px;margin-left:6px}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    @media(max-width:900px){.grid{grid-template-columns:1fr}}
+    .codebox{padding:10px;border:1px dashed rgba(255,255,255,.15);border-radius:10px;background:#0f141c;font-family:ui-monospace,Consolas,Menlo,monospace}
+    .toprow{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- Connexion (lien magique) -->
+    <div class="card" id="loginCard">
+      <h1>Mon espace</h1>
+      <div class="row">
+        <input id="login_email" type="email" placeholder="Votre email (commercial)" style="min-width:320px">
+        <button id="login_btn">Recevoir le lien de connexion</button>
+      </div>
+      <div class="muted">Vous recevrez un <b>lien magique</b> valable 10 minutes. Cliquez dessus pour accéder à votre espace.</div>
+      <div id="login_msg" class="muted" style="margin-top:8px"></div>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="card" id="dashCard" style="display:none">
+      <div class="toprow">
+        <h1>Bienvenue <span id="me_name"></span></h1>
+        <button id="logout_btn">Se déconnecter</button>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>Votre code</h2>
+          <div id="me_code" class="codebox">—</div>
+          <canvas id="qr" style="margin-top:10px;width:160px;height:160px"></canvas>
+        </div>
+
+        <div class="card">
+          <h2>Commissions</h2>
+          <div>En attente : <b id="sum_pending">0 €</b></div>
+          <div>Approuvées : <b id="sum_approved">0 €</b></div>
+          <div>Payées : <b id="sum_paid">0 €</b></div>
+        </div>
+
+        <div class="card">
+          <h2>Filleuls</h2>
+          <div>Nombre de filleuls : <b id="children_count">0</b></div>
+          <div>Ventes filleuls (nb) : <b id="children_sales_count">0</b></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dernières commissions -->
+    <div class="card" id="commCard" style="display:none">
+      <h2>Dernières commissions</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th><th>Statut</th><th>Rôle</th><th>Montant</th><th>Commande</th>
+          </tr>
+        </thead>
+        <tbody id="comm_tbody"><tr><td colspan="5" class="muted">Aucune donnée.</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- Mes filleuls -->
+    <div class="card" id="kidsCard" style="display:none">
+      <h2>Mes filleuls</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Nom</th><th>Email</th><th>Code</th><th>Inscription</th>
+          </tr>
+        </thead>
+        <tbody id="kids_tbody"><tr><td colspan="4" class="muted">Aucun filleul.</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- Edition profil -->
+    <div class="card" id="profileCard" style="display:none">
+      <h2>Mes informations</h2>
+      <div class="row">
+        <input id="p_first" type="text" placeholder="Prénom" style="min-width:180px">
+        <input id="p_last" type="text" placeholder="Nom" style="min-width:180px">
+        <input id="p_phone" type="text" placeholder="Téléphone" style="min-width:200px">
+        <button id="p_save">Sauvegarder</button>
+      </div>
+      <div id="p_msg" class="muted"></div>
+    </div>
+
+  </div>
+
+  <script>
+    const loginCard = document.getElementById('loginCard');
+    const dashCard = document.getElementById('dashCard');
+    const commCard = document.getElementById('commCard');
+    const kidsCard = document.getElementById('kidsCard');
+    const profileCard = document.getElementById('profileCard');
+
+    const LS_KEY = 'pnb_user_token';
+
+    function setToken(tok){ localStorage.setItem(LS_KEY, tok); }
+    function getToken(){ return localStorage.getItem(LS_KEY) || ''; }
+    function clearToken(){ localStorage.removeItem(LS_KEY); }
+    function authHeaders(){ return { Authorization:'Bearer '+getToken(), 'Content-Type':'application/json' }; }
+
+    // 1) Demander lien magique
+    document.getElementById('login_btn').onclick = async () => {
+      const email = document.getElementById('login_email').value.trim();
+      const msg = document.getElementById('login_msg');
+      if(!email){ msg.textContent='Entrez votre email.'; return; }
+      msg.textContent='Envoi du lien...';
+      try{
+        const r = await fetch('/api/auth/request-link', {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const j = await r.json();
+        if(!r.ok){ msg.textContent = j.error || 'Envoi impossible.'; return; }
+        msg.textContent = 'Lien envoyé ✔ Vérifiez votre boîte mail.';
+      }catch(e){ console.error(e); msg.textContent='Erreur réseau.'; }
+    };
+
+    // 2) Vérifier si on revient via un lien magique (#token=...)
+    async function checkHashLogin(){
+      const h = (location.hash || '').replace(/^#/, '');
+      const params = new URLSearchParams(h);
+      const t = params.get('token');
+      if(!t) return;
+      // on "consomme" le hash
+      history.replaceState(null, '', location.pathname);
+      try{
+        const r = await fetch('/api/auth/verify-link?token='+encodeURIComponent(t));
+        const j = await r.json();
+        if(!r.ok){ alert(j.error || 'Lien invalide/expiré'); return; }
+        setToken(j.token);
+        await loadOverview();
+      }catch(e){ console.error(e); alert('Erreur de connexion'); }
+    }
+
+    // 3) Charger le dashboard
+    async function loadOverview(){
+      const tok = getToken();
+      if(!tok){ return; }
+      try{
+        const r = await fetch('/api/me/overview', { headers: authHeaders() });
+        const j = await r.json();
+        if(!r.ok){ clearToken(); alert(j.error || 'Session expirée'); return; }
+
+        // Affiche cartes
+        loginCard.style.display='none';
+        dashCard.style.display='block';
+        commCard.style.display='block';
+        kidsCard.style.display='block';
+        profileCard.style.display='block';
+
+        // Profil + code + QR
+        document.getElementById('me_name').textContent = (j.me.first_name || '')+' '+(j.me.last_name || '');
+        document.getElementById('me_code').textContent = j.me.referral_code || '';
+        const qrCanvas = document.getElementById('qr');
+        qrCanvas.getContext && QRCode.toCanvas(qrCanvas, j.share_url || location.origin, { width: 160, margin: 1 });
+
+        // Totaux
+        document.getElementById('sum_pending').textContent = (Number(j.totals.pending || 0).toFixed(2))+' '+(j.currency||'EUR');
+        document.getElementById('sum_approved').textContent = (Number(j.totals.approved || 0).toFixed(2))+' '+(j.currency||'EUR');
+        document.getElementById('sum_paid').textContent = (Number(j.totals.paid || 0).toFixed(2))+' '+(j.currency||'EUR');
+
+        document.getElementById('children_count').textContent = j.children.count || 0;
+        document.getElementById('children_sales_count').textContent = j.children.sales_count || 0;
+
+        // Commissions
+        const ct = document.getElementById('comm_tbody');
+        ct.innerHTML = '';
+        if(!j.latest_commissions || j.latest_commissions.length===0){
+          ct.innerHTML = '<tr><td colspan="5" class="muted">Aucune donnée.</td></tr>';
+        } else {
+          for(const c of j.latest_commissions){
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${c.created_at ? new Date(c.created_at).toLocaleString() : ''}</td>
+              <td>${c.status}</td>
+              <td>${c.role}</td>
+              <td>${Number(c.amount).toFixed(2)} ${c.currency || ''}</td>
+              <td>${c.sale?.order_id || ''}</td>
+            `;
+            ct.appendChild(tr);
+          }
+        }
+
+        // Filleuls
+        const kt = document.getElementById('kids_tbody');
+        kt.innerHTML = '';
+        if(!j.children.list || j.children.list.length===0){
+          kt.innerHTML = '<tr><td colspan="4" class="muted">Aucun filleul.</td></tr>';
+        } else {
+          for(const k of j.children.list){
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${(k.first_name||'')+' '+(k.last_name||'')}</td>
+              <td>${k.email || ''}</td>
+              <td>${k.referral_code || ''}</td>
+              <td>${k.created_at ? new Date(k.created_at).toLocaleDateString() : ''}</td>
+            `;
+            kt.appendChild(tr);
+          }
+        }
+
+        // Pré-remplir profil
+        document.getElementById('p_first').value = j.me.first_name || '';
+        document.getElementById('p_last').value  = j.me.last_name || '';
+        document.getElementById('p_phone').value = j.me.phone || '';
+
+      }catch(e){ console.error(e); }
+    }
+
+    // 4) Sauvegarde profil
+    document.getElementById('p_save').onclick = async () => {
+      const pmsg = document.getElementById('p_msg');
+      pmsg.textContent = 'Sauvegarde...';
+      try{
+        const body = {
+          first_name: document.getElementById('p_first').value.trim(),
+          last_name:  document.getElementById('p_last').value.trim(),
+          phone:      document.getElementById('p_phone').value.trim()
+        };
+        const r = await fetch('/api/me/update-profile', {
+          method:'POST',
+          headers: authHeaders(),
+          body: JSON.stringify(body)
+        });
+        const j = await r.json();
+        if(!r.ok){ pmsg.textContent = j.error || 'Erreur'; return; }
+        pmsg.textContent = 'Sauvegardé ✔';
+      }catch(e){ console.error(e); pmsg.textContent='Erreur réseau'; }
+    };
+
+    // 5) Déconnexion
+    document.getElementById('logout_btn').onclick = () => {
+      clearToken();
+      location.reload();
+    };
+
+    // Auto: si on a un token stocké → affiche directement le dashboard
+    document.addEventListener('DOMContentLoaded', async ()=>{
+      await checkHashLogin();   // si on arrive via le mail
+      if (getToken()) await loadOverview(); // si déjà connecté
+    });
+  </script>
+</body>
+</html>
