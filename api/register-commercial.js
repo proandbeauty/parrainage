@@ -1,33 +1,24 @@
 // /api/register-commercial.js
-export const config = { runtime: 'nodejs18.x' };
+export const config = { runtime: 'nodejs' }; // <- OK sur Vercel (sinon supprimez cette ligne)
 
 import { createClient } from '@supabase/supabase-js';
 
 /* ------------------------------ CONFIG ------------------------------ */
 
-// URL de ton projet Supabase.
-// Si tu préfères, tu peux la mettre dans une variable Vercel SUPABASE_URL.
 const SUPABASE_URL = 'https://tpwkptzlhxitllugmlho.supabase.co';
-
-// Clé service_role (NE JAMAIS la mettre côté client !)
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-// Lecture clé Brevo (accepte 2 noms pour éviter les confusions)
 function getBrevoKey() {
   return process.env.BREVO_KEY || process.env.BREVO_API_KEY || '';
 }
 
-// Adresse expéditeur (doit être validée chez Brevo)
 const DEFAULT_FROM_EMAIL = 'service-clients@proandbeauty.com';
 const DEFAULT_FROM_NAME = 'Pro&Beauty';
 
 /* ---------------------------- OUTILS MAIL --------------------------- */
-
 async function sendBrevoEmail({ to, subject, html, fromEmail = DEFAULT_FROM_EMAIL, fromName = DEFAULT_FROM_NAME }) {
   const apiKey = getBrevoKey();
-  if (!apiKey) {
-    throw new Error('Brevo API key missing (set BREVO_KEY or BREVO_API_KEY in Vercel).');
-  }
+  if (!apiKey) throw new Error('Brevo API key missing (set BREVO_KEY or BREVO_API_KEY in Vercel).');
 
   const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
@@ -44,9 +35,8 @@ async function sendBrevoEmail({ to, subject, html, fromEmail = DEFAULT_FROM_EMAI
     })
   });
 
-  const text = await resp.text(); // on lit toujours le corps pour diagnostiquer
+  const text = await resp.text();
   if (!resp.ok) {
-    // On log côté serveur pour les diagnostics
     console.error('Brevo ERROR:', resp.status, text);
     throw new Error(`Brevo ${resp.status}: ${text}`);
   } else {
@@ -55,7 +45,6 @@ async function sendBrevoEmail({ to, subject, html, fromEmail = DEFAULT_FROM_EMAI
 }
 
 /* -------------------------- OUTILS DIVERS --------------------------- */
-
 function slug2(s) {
   return (s || '')
     .normalize('NFD')
@@ -79,7 +68,6 @@ function makeReferralCode(first, last) {
 }
 
 /* ----------------------------- SUPABASE ----------------------------- */
-
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error('Supabase configuration missing. Check SUPABASE_URL and SUPABASE_SERVICE_KEY.');
 }
@@ -87,7 +75,6 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 /* ------------------------------ HANDLER ----------------------------- */
-
 export default async function handler(req, res) {
   try {
     if (req.method !== 'POST') {
@@ -95,13 +82,11 @@ export default async function handler(req, res) {
     }
 
     const { first_name, last_name, email, phone, source_brand, sponsor } = req.body || {};
-
-    // Validation simple
     if (!first_name || !last_name || !email || !phone) {
       return res.status(400).json({ error: 'Champs requis: first_name, last_name, email, phone' });
     }
 
-    // Chercher un éventuel parent via le code sponsor
+    // Trouver le parrain via le code sponsor (optionnel)
     let parent_id = null;
     if (sponsor) {
       const { data: parent, error: pErr } = await supabase
@@ -109,13 +94,11 @@ export default async function handler(req, res) {
         .select('id, referral_code')
         .eq('referral_code', sponsor)
         .maybeSingle();
-      if (pErr) {
-        console.warn('Lookup sponsor error:', pErr.message);
-      }
+      if (pErr) console.warn('Lookup sponsor error:', pErr.message);
       if (parent?.id) parent_id = parent.id;
     }
 
-    // Générer un code unique (réessaie si collision)
+    // Générer un code unique (anti-collision simple)
     let referral_code = null;
     for (let i = 0; i < 6; i++) {
       const candidate = makeReferralCode(first_name, last_name);
@@ -124,16 +107,12 @@ export default async function handler(req, res) {
         .select('id')
         .eq('referral_code', candidate)
         .maybeSingle();
-      if (!exists?.id) {
-        referral_code = candidate;
-        break;
-      }
+      if (!exists?.id) { referral_code = candidate; break; }
     }
     if (!referral_code) {
       return res.status(500).json({ error: 'Impossible de générer un code unique' });
     }
 
-    // Prépare la charge utile (n'ajoute parent_id que s'il existe)
     const payload = {
       first_name,
       last_name,
@@ -144,17 +123,14 @@ export default async function handler(req, res) {
     };
     if (parent_id) payload.parent_id = parent_id;
 
-    // Insertion du commercial
     const { error: insertError } = await supabase.from('referrers').insert([payload]);
-
     if (insertError) {
       console.error('Supabase insert error:', insertError);
       return res.status(500).json({ error: insertError.message || 'Erreur Supabase' });
     }
 
-    // Envoi des emails (on ne bloque pas l'inscription si l'email échoue)
+    // Emails (on ne bloque pas l’inscription si l’email échoue)
     try {
-      // A) Email au nouveau commercial
       await sendBrevoEmail({
         to: email,
         subject: 'Bienvenue — Votre code parrain Pro&Beauty',
@@ -162,12 +138,11 @@ export default async function handler(req, res) {
           <p>Bonjour ${first_name},</p>
           <p>Bienvenue dans le programme Pro&Beauty. Voici votre code parrain :</p>
           <p style="font-size:18px;"><b>${referral_code}</b></p>
-          <p>Partagez-le à vos contacts. Chaque vente apportera une commission selon le barème en vigueur.</p>
+          <p>Partagez-le à vos contacts.</p>
           <p>À très vite,<br/>Pro&Beauty</p>
         `
       });
 
-      // B) Email au parrain (si présent)
       if (parent_id) {
         const { data: parent2 } = await supabase
           .from('referrers')
@@ -180,7 +155,7 @@ export default async function handler(req, res) {
             subject: 'Bonne nouvelle — Vous avez un nouveau filleul',
             html: `
               <p>Bonjour ${parent2.first_name || ''},</p>
-              <p>Un nouveau commercial s'est inscrit avec votre code parrain :</p>
+              <p>Un nouveau commercial s'est inscrit avec votre code :</p>
               <ul>
                 <li>Nom : ${first_name} ${last_name}</li>
                 <li>Email : ${email}</li>
@@ -192,13 +167,11 @@ export default async function handler(req, res) {
           });
         }
       }
-      // si tout va bien, pas de warning
+
       return res.status(200).json({ ok: true, referral_code });
 
     } catch (mailErr) {
       console.error('Email send failed:', mailErr.message);
-      // on renvoie néanmoins ok pour ne pas bloquer l’inscription,
-      // mais on expose un warning pour que tu voies la cause côté client (Network → Response)
       return res.status(200).json({ ok: true, referral_code, email_warning: mailErr.message });
     }
 
