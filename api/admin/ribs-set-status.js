@@ -1,67 +1,59 @@
-// api/admin/ribs-set-status.js
+// /api/admin/ribs-set-status.js
+export const config = { runtime: 'nodejs' };
+
 import { createClient } from '@supabase/supabase-js';
 
-const TABLE_RIBS = 'bank_accounts'; // ← adapte si besoin
-const ALLOWED    = ['pending', 'validated', 'rejected'];
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY;
+const ADMIN_TOKEN  = process.env.ADMIN_TOKEN || '';
 
-function json(d, s = 200) {
-  return new Response(JSON.stringify(d), {
-    status: s,
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
-function requireAdmin(req) {
-  const h = req.headers.get('authorization') || '';
-  const tok = h.split(' ')[1] || '';
-  if (!tok || tok !== process.env.ADMIN_TOKEN) {
-    throw new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
-  }
-}
-function supa() {
-  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+
+function bad(res, msg, code=400){ return res.status(code).json({ error: msg }); }
+function ok(res, body){ return res.status(200).json(body); }
+function authed(req){
+  const h = String(req.headers.authorization||''); 
+  const tok = h.replace(/^Bearer\s+/i,'').trim();
+  return tok && tok === ADMIN_TOKEN;
 }
 
 /**
- * POST /api/admin/ribs-set-status
- * body: { id: string, status: "validated"|"rejected"|"pending", note?: string }
+ * Body attendu: { id: <rib_id>, status: 'approved'|'rejected'|'pending', note?: string }
+ * Compat: si on reçoit 'validated', on mappe vers 'approved'
  */
-export default async function handler(req) {
-  try {
-    requireAdmin(req);
-    if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+export default async function handler(req, res){
+  try{
+    if(req.method !== 'POST') return bad(res,'Method Not Allowed',405);
+    if(!authed(req))          return bad(res,'Unauthorized',401);
+    if(!SUPABASE_URL || !SERVICE_KEY) return bad(res,'Server not configured',500);
 
-    const { id, status, note } = await req.json().catch(() => ({}));
-    if (!id || !ALLOWED.includes(status)) {
-      return json({ error: 'Invalid payload' }, 400);
+    const { id, status } = req.body || {};
+    if (!id || !status) return bad(res,'id et status requis');
+
+    // normalisation des statuts
+    let newStatus = String(status).toLowerCase();
+    if (newStatus === 'validated') newStatus = 'approved'; // compat ancien front
+
+    if (!['approved','rejected','pending'].includes(newStatus)) {
+      return bad(res, 'Statut invalide (utilisez approved | rejected | pending)');
     }
 
-    const now = new Date().toISOString();
-    const sb = supa();
-
-    const patch = {
-      status,
-      moderation_note: note ?? null,
-    };
-    if (status === 'validated') {
-      patch.validated_at = now;
-      patch.validated_by = 'admin'; // ← tu peux mettre l’email de l’admin connecté si tu gères ça
-    }
-    if (status === 'pending') {
-      patch.validated_at = null;
-      patch.validated_by = null;
-    }
-
-    const { data, error } = await sb
-      .from(TABLE_RIBS)
-      .update(patch)
+    const { data, error } = await supabase
+      .from('bank_accounts')
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
       .eq('id', id)
-      .select()
-      .single();
+      .select('id, status')
+      .maybeSingle();
 
-    if (error) return json({ error: 'Update error', detail: error.message }, 500);
-    return json({ ok: true, item: data });
-  } catch (e) {
-    if (e instanceof Response) return e;
-    return json({ error: 'Unexpected', detail: String(e) }, 500);
+    if (error) {
+      console.error('Supabase update (ribs-set-status) error:', error);
+      return bad(res, 'Erreur base de données (maj RIB).');
+    }
+    if (!data) return bad(res, 'RIB introuvable', 404);
+
+    return ok(res, { ok: true, id: data.id, status: data.status });
+  }catch(e){
+    console.error('Server (ribs-set-status) error:', e);
+    return bad(res,'Erreur serveur (maj RIB).',500);
   }
 }
