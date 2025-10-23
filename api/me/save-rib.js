@@ -31,22 +31,29 @@ function maskIban(iban) {
   return clean.slice(0,4) + ' •••• •••• •••• ' + clean.slice(-4);
 }
 
+function bad(res, msg, code=400, detail){ 
+  return res.status(code).json({ error: msg, detail }); 
+}
+
 export default async function handler(req, res) {
   try {
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+    if (req.method !== 'POST') return bad(res,'Method Not Allowed',405);
     const { userId } = verifyTokenFromHeader(req);
-    if (!userId) return res.status(401).json({ error: 'unauthorized' });
+    if (!userId) return bad(res,'unauthorized',401);
 
-    const {
-      titulaire, iban, bic, banque,
-      justificatif_path, rgpd_consent
-    } = (req.body || {});
+    const body = (req.body || {});
+    const titulaire = (body.titulaire || '').trim();
+    const iban      = (body.iban || '').trim().replace(/\s+/g,'');
+    const bic       = (body.bic || null) ? String(body.bic).trim() : null;
+    const banque    = (body.banque || null) ? String(body.banque).trim() : null;
+    const justificatif_path = body.justificatif_path || body.justificatif || null;
+    const rgpd_consent = !!body.rgpd_consent;
 
     if (!titulaire || !iban) {
-      return res.status(400).json({ error: 'titulaire et iban requis' });
+      return bad(res, 'titulaire et iban requis');
     }
 
-    // upsert dans bank_accounts pour ce referrer
+    // Existe déjà ?
     const { data: existing, error: eSel } = await supabase
       .from('bank_accounts')
       .select('id')
@@ -56,21 +63,22 @@ export default async function handler(req, res) {
       .maybeSingle();
 
     if (eSel) {
-      console.error('save-rib select bank_accounts error:', eSel);
-      return res.status(500).json({ error: 'db error' });
+      console.error('save-rib select error:', eSel);
+      return bad(res, 'db error (select)', 500, eSel.message || String(eSel));
     }
 
     const patch = {
       referrer_id: userId,
       holder_name: titulaire,
-      iban: iban,
-      bic: bic || null,
-      banque: banque || null,
+      iban,
+      bic,
+      banque,
       iban_masked: maskIban(iban),
-      status: 'pending',                 // à chaque modif utilisateur, on repasse en "pending"
-      rgpd_consent: !!rgpd_consent
+      status: 'pending'
     };
     if (justificatif_path) patch.doc_path = justificatif_path;
+    // on ne met rgpd_consent que si fourni (pour éviter les bases encore sans colonne)
+    if (body.hasOwnProperty('rgpd_consent')) patch.rgpd_consent = rgpd_consent;
 
     let row;
     if (existing && existing.id) {
@@ -82,7 +90,7 @@ export default async function handler(req, res) {
         .maybeSingle();
       if (eUpd) {
         console.error('save-rib update error:', eUpd);
-        return res.status(500).json({ error: 'db error' });
+        return bad(res, 'db error (update)', 500, eUpd.message || String(eUpd));
       }
       row = upd;
     } else {
@@ -93,29 +101,27 @@ export default async function handler(req, res) {
         .maybeSingle();
       if (eIns) {
         console.error('save-rib insert error:', eIns);
-        return res.status(500).json({ error: 'db error' });
+        return bad(res, 'db error (insert)', 500, eIns.message || String(eIns));
       }
       row = ins;
     }
 
-    // (Optionnel) écrire aussi dans la table legacy "rib" pour archive/compat
+    // (optionnel) écriture “legacy” dans rib si la table existe
     try {
       await supabase.from('rib').upsert({
-        id: row.id,                      // on réutilise l’id si possible
+        id: row.id,
         user_id: userId,
-        titulaire: titulaire,
-        iban: iban,
-        bic: bic || null,
-        banque: banque || null,
+        titulaire,
+        iban,
+        bic,
+        banque,
         created_at: row.created_at || new Date().toISOString()
       }, { onConflict: 'id' });
-    } catch (e) {
-      // no-op si la table rib n'existe pas / pas critique
-    }
+    } catch {}
 
     return res.status(200).json({ ok: true, rib_id: row.id, status: row.status });
   } catch (e) {
     console.error('save-rib server error:', e);
-    return res.status(401).json({ error: 'unauthorized' });
+    return bad(res,'unauthorized',401, e.message || String(e));
   }
 }
