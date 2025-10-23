@@ -77,10 +77,10 @@
       <h2>Accéder à mon espace</h2>
       <p class="lead">Entrez votre email professionnel pour recevoir un <b>lien magique</b> de connexion (valable 10&nbsp;minutes).</p>
       <div class="bar">
-        <input id="quick_email" type="email" placeholder="Votre email (commercial)">
+        <input id="quick_email" type="email" placeholder="Votre email (commercial)" autocomplete="email" />
         <button id="quick_btn" class="btn">Recevoir le lien</button>
       </div>
-      <div id="quick_msg" class="msg muted"></div>
+      <div id="quick_msg" class="msg muted" role="status" aria-live="polite"></div>
     </div>
 
     <!-- FORMULAIRE D’INSCRIPTION -->
@@ -222,25 +222,107 @@
   copyBtn.addEventListener('click', async ()=>{
     try{ await navigator.clipboard.writeText(codeBox.textContent); alert('Code copié'); }catch{}
   });
-
-  // ===== CONNEXION RAPIDE PAR MAIL =====
-  const quickBtn = document.getElementById('quick_btn');
-  const quickMsg = document.getElementById('quick_msg');
-  quickBtn.addEventListener('click', async ()=>{
-    const email = (document.getElementById('quick_email').value || '').trim();
-    if(!email){ quickMsg.textContent='Indiquez votre email.'; quickMsg.className='msg error'; return; }
-    quickMsg.textContent='Envoi du lien...'; quickMsg.className='msg muted';
-    try{
-      const r = await fetch('/api/auth/request-link',{
-        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email })
-      });
-      const j = await r.json();
-      if(!r.ok){ quickMsg.textContent = j.error || 'Erreur lors de l’envoi.'; quickMsg.className='msg error'; return; }
-      quickMsg.textContent='Lien envoyé ✔ Vérifiez votre boîte mail.'; quickMsg.className='msg ok';
-    }catch(e){
-      quickMsg.textContent='Erreur réseau.'; quickMsg.className='msg error';
-    }
-  });
   </script>
+
+  <!-- ===== CONNEXION RAPIDE PAR MAIL (version finale, unique) ===== -->
+  <script>
+    (function () {
+      const emailInput = document.getElementById('quick_email');
+      const btn = document.getElementById('quick_btn');
+      const msg = document.getElementById('quick_msg');
+
+      // couleurs cohérentes avec la charte
+      const COLOR_SUCCESS = '#5dd4a3';
+      const COLOR_ERROR = '#ff8686';
+      const COLOR_NEUTRAL = '#eaf2fb';
+
+      function setMsg(text, color, asHTML = false) {
+        if (asHTML) { msg.innerHTML = text; } else { msg.textContent = text; }
+        msg.style.color = color || COLOR_NEUTRAL;
+      }
+
+      function disableUI(disabled) {
+        btn.disabled = disabled;
+        emailInput.disabled = disabled;
+        btn.style.opacity = disabled ? '0.7' : '1';
+        btn.style.cursor = disabled ? 'not-allowed' : 'pointer';
+      }
+
+      function isValidEmail(v) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+      }
+
+      async function sendQuickLink() {
+        const email = String(emailInput.value || '').trim().toLowerCase();
+
+        // reset message
+        setMsg('Envoi en cours...', COLOR_NEUTRAL);
+
+        // validation simple
+        if (!email) {
+          setMsg('Veuillez saisir votre email.', COLOR_ERROR);
+          return;
+        }
+        if (!isValidEmail(email)) {
+          setMsg('Adresse email invalide.', COLOR_ERROR);
+          return;
+        }
+
+        disableUI(true);
+
+        try {
+          const res = await fetch('/api/auth/request-link', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          });
+          const data = await res.json().catch(() => ({}));
+
+          // Mode actuel de l'API : 200 avec { ok:true, found:true|false }
+          if (res.ok && data && data.ok === true) {
+            if (data.found === true) {
+              setMsg('Lien envoyé ✔ Vérifiez votre boîte mail.', COLOR_SUCCESS);
+            } else {
+              setMsg(
+                "Cet email n'existe pas dans notre base.<br/>👉 <a href='#step1' style='color:#87e6be;text-decoration:underline;'>Créer un compte</a>",
+                COLOR_ERROR,
+                true
+              );
+            }
+            return;
+          }
+
+          // Si un jour tu actives les erreurs 404 (USER_NOT_FOUND)
+          if (res.status === 404 && data && data.code === 'USER_NOT_FOUND') {
+            setMsg(
+              "Cet email n'existe pas dans notre base.<br/>👉 <a href='#step1' style='color:#87e6be;text-decoration:underline;'>Créer un compte</a>",
+              COLOR_ERROR,
+              true
+            );
+            return;
+          }
+
+          // Fallback générique
+          setMsg("Impossible d'envoyer le lien pour le moment. Réessayez plus tard.", COLOR_ERROR);
+        } catch (e) {
+          setMsg('Erreur réseau. Vérifiez votre connexion.', COLOR_ERROR);
+        } finally {
+          disableUI(false);
+        }
+      }
+
+      // Clic bouton
+      btn.addEventListener('click', sendQuickLink);
+
+      // Entrée clavier
+      emailInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          sendQuickLink();
+        }
+      });
+    })();
+  </script>
+
 </body>
 </html>
