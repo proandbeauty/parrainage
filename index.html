@@ -4,8 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pro&Beauty — Parrainage</title>
-  <meta name="description" content="Programme de parrainage Pro&Beauty : inscrivez-vous et recevez votre code unique." />
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <meta name="description" content="Programme de parrainage Pro&Beauty : inscrivez-vous et recevez votre code unique ou accédez à votre espace." />
   <style>
     :root {
       --bg: #0b0f14;
@@ -16,156 +15,174 @@
       --accent-2: #87e6be;
       --error: #ff6b6b;
       --success: #64dfb8;
+      --divider: rgba(255,255,255,.08);
+      --stroke: rgba(255,255,255,.12);
     }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; background: radial-gradient(1200px 600px at 80% -10%, #1a2230 0%, #0b0f14 60%);
-      color: var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      display: grid; place-items: center; min-height: 100vh; padding: 24px;
+    *{box-sizing:border-box}
+    body{
+      margin:0;background:#0b0f14;color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
     }
-    .wrap { max-width: 780px; width: 100%; }
-    .card {
-      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
-      border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 28px; backdrop-filter: blur(6px);
-      box-shadow: 0 8px 40px rgba(0,0,0,0.45);
+    .wrap{max-width:980px;margin:32px auto;padding:0 16px}
+    .card{
+      background:#121821;border:1px solid var(--divider);border-radius:18px;padding:20px;
+      box-shadow:0 6px 30px rgba(0,0,0,.35)
     }
-    header { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
-    .logo { display:inline-flex; align-items:center; gap:10px; }
-    .brand { font-weight:800; letter-spacing:.2px; }
-    h1 { margin: 8px 0 8px 0; font-size: 26px; letter-spacing: 0.2px; }
-    p.lead { margin: 0 0 20px; color: var(--muted); }
-    form { display: grid; gap: 12px; margin-top: 12px; }
-    label { font-size: 14px; color: var(--muted); display:block; }
-    input[type="text"], input[type="email"], input[type="tel"] {
-      width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12);
-      background: #0f141c; color: var(--text);
+    header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+    .brandbox{display:flex;align-items:center;gap:12px}
+    .logo{width:52px;height:52px;border-radius:8px;background:#0f141c;border:1px solid var(--stroke);object-fit:contain;padding:2px}
+    h1{margin:4px 0 8px;font-size:26px}
+    h2{margin:0 0 10px;font-size:18px}
+    p.lead{margin:0 0 14px;color:var(--muted)}
+    .grid{display:grid;gap:16px}
+    @media(min-width:960px){.grid-2{grid-template-columns:1.1fr 1.4fr}}
+    input,button{border-radius:12px}
+    input[type="text"],input[type="email"],input[type="tel"]{
+      width:100%;padding:12px 14px;background:#0f141c;border:1px solid var(--stroke);color:var(--text)
     }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .consent { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--muted); }
-    .consent a { color: var(--accent); text-decoration: underline; }
-    .btn { background: var(--accent); color: #06281c; font-weight: 700; border: none; padding: 12px 16px; border-radius: 12px; cursor: pointer; }
-    .btn:hover { background: var(--accent-2); }
-    .note { font-size: 12px; color: var(--muted); }
-    .error { color: var(--error); font-size: 14px; }
-    .success { color: var(--success); font-size: 15px; }
-    .center { text-align: center; }
-    .codebox { margin: 18px 0; padding: 14px; background: #0f141c; border-radius: 12px; border: 1px dashed rgba(255,255,255,0.15); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 18px; }
-    .actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-    .foot { margin-top: 12px; text-align: center; color: var(--muted); font-size: 12px; }
-    details.policy { margin-top:12px; padding:14px; background:#0f141c; border-radius:12px; border:1px solid rgba(255,255,255,0.08); }
-    details.policy summary { cursor:pointer; user-select:none; color: var(--accent); font-weight:600; }
-    .company { margin-top:16px; font-size:13px; color:var(--muted); }
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .consent{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--muted)}
+    .consent a{color:var(--accent)}
+    .btn{background:var(--accent);color:#06281c;font-weight:700;border:none;padding:12px 16px;cursor:pointer}
+    .btn:hover{background:var(--accent-2)}
+    .muted{color:var(--muted)}
+    .codebox{margin:18px 0;padding:14px;background:#0f141c;border:1px dashed var(--stroke)}
+    .center{text-align:center}
+    details.policy{margin-top:12px;padding:14px;background:#0f141c;border:1px solid var(--divider)}
+    details.policy summary{cursor:pointer;color:var(--accent);font-weight:600}
+    .bar{display:grid;gap:10px;align-items:center}
+    @media(min-width:780px){.bar{grid-template-columns:1fr auto}}
+    .msg{font-size:14px;margin-top:6px}
+    .msg.error{color:var(--error)} .msg.ok{color:var(--success)}
+    .section-title{margin:24px 0 10px;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.08em}
+    .divider{height:1px;background:var(--divider);margin:16px 0}
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 </head>
 <body>
   <div class="wrap">
-    <!-- ÉTAPE 1 : FORMULAIRE -->
-    <div class="card" id="step1">
+
+    <!-- ACCÈS À L’ESPACE (EN TÊTE) -->
+    <div class="card" id="quickLoginCard" style="margin-bottom:16px">
       <header>
-        <div class="logo" aria-label="Pro&Beauty">
-          <img src="./Logo Pro&Beauty.png" alt="Pro&Beauty" style="width:60px;height:60px;object-fit:contain;border-radius:6px;background:#0f141c;border:1px solid rgba(255,255,255,0.15);padding:2px;"/>
-          <div class="brand">Pro&Beauty</div>
+        <div class="brandbox">
+          <img class="logo" src="./Logo Pro&Beauty.png" alt="Pro&Beauty">
+          <div>
+            <div style="font-weight:800">Pro&Beauty</div>
+            <div class="muted" style="font-size:13px">Programme de parrainage</div>
+          </div>
         </div>
       </header>
 
-      <h1>Programme de parrainage</h1>
-      <p class="lead">Inscrivez-vous en 30 secondes : recevez votre <strong>code parrain</strong> à partager à vos clientes et partenaires.</p>
+      <h2>Accéder à mon espace</h2>
+      <p class="lead">Entrez votre email professionnel pour recevoir un <b>lien magique</b> de connexion (valable 10&nbsp;minutes).</p>
+      <div class="bar">
+        <input id="quick_email" type="email" placeholder="Votre email (commercial)">
+        <button id="quick_btn" class="btn">Recevoir le lien</button>
+      </div>
+      <div id="quick_msg" class="msg muted"></div>
+    </div>
 
-      <form id="referral-form" novalidate style="margin-top:12px;">
+    <!-- FORMULAIRE D’INSCRIPTION -->
+    <div class="card" id="step1">
+      <h1>Inscription au programme</h1>
+      <p class="lead">Créez votre profil et recevez votre <b>code parrain</b> à partager à vos clientes et partenaires.</p>
+
+      <form id="referral-form" novalidate>
         <div class="row">
           <div>
-            <label for="first_name">Prénom</label>
+            <label for="first_name" class="muted">Prénom</label>
             <input id="first_name" name="first_name" type="text" placeholder="Jean" required />
           </div>
           <div>
-            <label for="last_name">Nom</label>
+            <label for="last_name" class="muted">Nom</label>
             <input id="last_name" name="last_name" type="text" placeholder="Dupont" required />
           </div>
         </div>
-
         <div class="row">
           <div>
-            <label for="email">Email</label>
+            <label for="email" class="muted">Email</label>
             <input id="email" name="email" type="email" placeholder="jean.dupont@mail.com" required />
           </div>
           <div>
-            <label for="phone">Téléphone</label>
+            <label for="phone" class="muted">Téléphone</label>
             <input id="phone" name="phone" type="tel" placeholder="06 12 34 …" required />
           </div>
         </div>
 
-        <label for="brand">Marque d’origine (optionnel)</label>
+        <label for="brand" class="muted">Marque d’origine (optionnel)</label>
         <input id="brand" name="brand" type="text" placeholder="Ex. CosméNova" />
 
-        <label for="sponsor">Code parrain (commercial) — optionnel</label>
+        <label for="sponsor" class="muted">Code parrain (commercial) — optionnel</label>
         <input id="sponsor" name="sponsor" type="text" placeholder="Ex. PNB-AB1234" />
 
         <div class="consent">
           <input id="consent" type="checkbox" required aria-label="Consentement RGPD" />
-          <label for="consent">J’accepte d’être contacté au sujet du programme de parrainage et je reconnais avoir lu la <a href="#" onclick="document.getElementById('policy').open=true;return false;">politique de confidentialité</a>.</label>
+          <label for="consent">J’accepte d’être contacté dans le cadre du programme et j’ai lu la
+            <a href="#" onclick="document.getElementById('policy').open=true;return false;">politique de confidentialité</a>.
+          </label>
         </div>
 
         <button class="btn" type="submit">Valider et générer mon code</button>
-        <div id="msg" class="error" role="alert" aria-live="polite"></div>
+        <div id="msg" class="msg error" role="alert" aria-live="polite"></div>
 
         <details id="policy" class="policy">
-          <summary>Politique de confidentialité — Pro&Beauty (aperçu)</summary>
-          <div>
-            <p><strong>Responsable de traitement :</strong> Pro&Beauty — 9 avenue de la marqueille, 31650 St Orens de Gameville — service-clients@proandbeauty.com — 09 72 57 80 15.</p>
-            <p><strong>Données traitées :</strong> prénom, nom, email, téléphone, marque d’origine (optionnel), code de parrainage généré, date d’inscription.</p>
-            <p><strong>Finalités :</strong> gestion du programme de parrainage, attribution des primes/avantages, suivi statistique et communication liée au programme.</p>
-            <p><strong>Base légale :</strong> consentement (art. 6.1.a RGPD) pour les communications ; intérêt légitime (art. 6.1.f) pour la gestion opérationnelle du programme.</p>
-            <p><strong>Destinataires :</strong> personnel habilité de Pro&Beauty et prestataires techniques agissant sur instruction (hébergement, emails). Aucune cession commerciale.</p>
-            <p><strong>Durées de conservation :</strong> 24 mois après la dernière interaction ou jusqu’au retrait du consentement, puis suppression ou anonymisation.</p>
-            <p><strong>Vos droits :</strong> accès, rectification, effacement, limitation, opposition et retrait du consentement. Pour exercer vos droits : service-clients@proandbeauty.com.</p>
-            <p><strong>Sécurité :</strong> accès restreints, chiffrement en transit, politiques d’accès minimales. Les insertions publiques sont limitées (RLS) et aucune lecture de vos données n’est possible depuis cette page.</p>
-          </div>
+          <summary>Politique de confidentialité — aperçu</summary>
+          <p><b>Responsable :</b> Pro&Beauty — service-clients@proandbeauty.com</p>
+          <p><b>Données :</b> identité, contact, code, parrain éventuel, dates.</p>
+          <p><b>Finalités :</b> gestion du programme et communications associées.</p>
+          <p><b>Base légale :</b> consentement et intérêt légitime.</p>
+          <p><b>Durée :</b> 24 mois après dernière interaction, puis suppression/anonymisation.</p>
         </details>
-
-        <div class="company">
-          <p><strong>Pro&Beauty</strong> — 9 avenue de la marqueille, 31650 St Orens de Gameville — Tél. 09 72 57 80 15 — Email : service-clients@proandbeauty.com</p>
-        </div>
       </form>
     </div>
 
-    <!-- ÉTAPE 2 : CODE GÉNÉRÉ -->
-    <div class="card center" id="step2" style="display:none;">
+    <!-- ÉTAPE 2 : code généré -->
+    <div class="card center" id="step2" style="display:none">
       <h1>Votre code parrain</h1>
-      <p class="lead">Partagez ce code à vos clientes. Lors de l’inscription, elles n’auront qu’à le fournir.</p>
-
+      <p class="lead">Partagez ce code. Lors de l’inscription, vos contacts n’auront qu’à le saisir.</p>
       <div id="code" class="codebox">PNB-XXXXXX</div>
-
-      <div class="actions">
+      <div style="display:flex;gap:10px;justify-content:center">
         <button class="btn" id="copyBtn">Copier</button>
         <button class="btn" id="qrBtn">Afficher le QR code</button>
       </div>
-
-      <canvas id="qrcanvas" style="display:none; margin:16px auto; width:180px; height:180px;"></canvas>
-      <p class="foot">Gardez ce code précieusement. Un email de confirmation vous a été envoyé.</p>
+      <canvas id="qrcanvas" style="display:none;margin:16px auto;width:180px;height:180px"></canvas>
+      <div class="divider"></div>
+      <p class="muted" style="font-size:12px">Un email de confirmation peut vous être envoyé ultérieurement.</p>
     </div>
+
   </div>
 
-  <!-- QR Code lib -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
-
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-  // ====== CONFIG PARTAGE (URL cible du QR) ======
-  // Si tu veux que le QR renvoie vers une autre page, modifie l'URL ci-dessous :
-  const SHARE_BASE_URL = 'https://www.proandbeauty.com';
+  // ===== CONFIG SUPABASE =====
+  const SUPABASE_URL = "https://tpwkptzlhxitllugmlho.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwd2twdHpsaHhpdGxsdWdtbGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA1MTgzMTAsImV4cCI6MjA3NjA5NDMxMH0.zm782jT62rG7WzuPs7FL0Kv9oizkArvOCPLUoGYh3nw";
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+  // ===== Génération code parrain =====
+  const slug2 = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z]/g,'');
+  const rand4 = () => Math.floor(Math.random()*10000).toString().padStart(4,'0');
+  function checksum(str){let sum=0;for(const c of str){sum+=c.charCodeAt(0)}return String(sum%97).padStart(2,'0')}
+  function makeReferralCode(first,last){
+    const p=(slug2(first).slice(0,2)||'XX'); const n=(slug2(last).slice(0,2)||'YY');
+    const base=`${p}${n}${rand4()}`; return `PNB-${base}${checksum(base)}`
+  }
+
+  // ===== FORMULAIRE INSCRIPTION =====
   const form = document.getElementById('referral-form');
-  const msg = document.getElementById('msg');
-  const step1 = document.getElementById('step1');
-  const step2 = document.getElementById('step2');
+  const msg  = document.getElementById('msg');
+  const step1= document.getElementById('step1');
+  const step2= document.getElementById('step2');
   const codeBox = document.getElementById('code');
   const copyBtn = document.getElementById('copyBtn');
-  const qrBtn = document.getElementById('qrBtn');
-  const qrCanvas = document.getElementById('qrcanvas');
+  const qrBtn   = document.getElementById('qrBtn');
+  const qrCanvas= document.getElementById('qrcanvas');
 
-  // Soumission : on délègue tout au serveur (/api/register-commercial)
-  form.addEventListener('submit', async (e) => {
+  form.addEventListener('submit', async (e)=>{
     e.preventDefault();
-    msg.textContent = '⏳ Enregistrement…';
+    msg.textContent = 'Enregistrement...';
 
     const first_name = document.getElementById('first_name').value.trim();
     const last_name  = document.getElementById('last_name').value.trim();
@@ -175,52 +192,53 @@
     const sponsor    = document.getElementById('sponsor').value.trim() || null;
     const consent    = document.getElementById('consent').checked;
 
-    if(!first_name || !last_name){ msg.textContent = 'Prénom et nom sont requis.'; return; }
-    if(!email || !phone){ msg.textContent = 'Renseignez votre email et votre téléphone.'; return; }
-    if(!consent){ msg.textContent = 'Merci d’accepter la mention de consentement.'; return; }
+    if(!first_name || !last_name){ msg.textContent='Prénom et nom requis.'; return; }
+    if(!email || !phone){ msg.textContent='Email et téléphone requis.'; return; }
+    if(!consent){ msg.textContent='Merci d’accepter la mention RGPD.'; return; }
 
-    try {
-      const r = await fetch('/api/register-commercial', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ first_name, last_name, email, phone, source_brand: brand, sponsor })
+    const referral_code = makeReferralCode(first_name,last_name);
+
+    const { error } = await supabase.from('referrers')
+      .insert([{ first_name,last_name,email,phone,source_brand:brand,referral_code,parent_code:sponsor }]);
+    if(error){ msg.textContent='Erreur d’enregistrement'; console.error(error); return; }
+
+    try{
+      const r = await fetch('/api/send-confirmation',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ email, first_name, referral_code })
       });
-      const data = await r.json();
-      if (!r.ok || !data.ok) {
-        msg.textContent = '❌ ' + (data.error || 'Erreur serveur');
-        return;
-      }
+      if(!r.ok){ console.warn('send-confirmation failed', await r.text()); }
+    }catch(e){ console.warn(e); }
 
-      // Code renvoyé par le serveur
-      const referral_code = data.referral_code;
-      codeBox.textContent = referral_code;
+    codeBox.textContent = referral_code;
+    step1.style.display='none'; step2.style.display='block';
+  });
 
-      // Passage à l'étape 2
-      msg.textContent = '';
-      step1.style.display = 'none';
-      step2.style.display = 'block';
+  // ===== QR / COPIE =====
+  qrBtn.addEventListener('click', ()=>{
+    qrCanvas.style.display='block';
+    QRCode.toCanvas(qrCanvas, 'https://www.proandbeauty.com', { width:180, margin:1 }, err=>{ if(err)console.error(err) })
+  });
+  copyBtn.addEventListener('click', async ()=>{
+    try{ await navigator.clipboard.writeText(codeBox.textContent); alert('Code copié'); }catch{}
+  });
 
-      // Prépare le QR avec ?rc=CODE
-      const shareUrl = `${SHARE_BASE_URL}?rc=${encodeURIComponent(referral_code)}`;
-      qrBtn.onclick = () => {
-        qrCanvas.style.display = 'block';
-        QRCode.toCanvas(qrCanvas, shareUrl, { width: 180, margin: 1 }, (error) => {
-          if (error) console.error(error);
-        });
-      };
-
-      // Copier le code
-      copyBtn.onclick = async () => {
-        try {
-          await navigator.clipboard.writeText(referral_code);
-          alert('Code copié dans le presse-papiers.');
-        } catch {
-          alert('Impossible de copier automatiquement. Sélectionnez et copiez le code manuellement.');
-        }
-      };
-    } catch (err) {
-      console.error(err);
-      msg.textContent = '❌ Erreur réseau';
+  // ===== CONNEXION RAPIDE PAR MAIL =====
+  const quickBtn = document.getElementById('quick_btn');
+  const quickMsg = document.getElementById('quick_msg');
+  quickBtn.addEventListener('click', async ()=>{
+    const email = (document.getElementById('quick_email').value || '').trim();
+    if(!email){ quickMsg.textContent='Indiquez votre email.'; quickMsg.className='msg error'; return; }
+    quickMsg.textContent='Envoi du lien...'; quickMsg.className='msg muted';
+    try{
+      const r = await fetch('/api/auth/request-link',{
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email })
+      });
+      const j = await r.json();
+      if(!r.ok){ quickMsg.textContent = j.error || 'Erreur lors de l’envoi.'; quickMsg.className='msg error'; return; }
+      quickMsg.textContent='Lien envoyé ✔ Vérifiez votre boîte mail.'; quickMsg.className='msg ok';
+    }catch(e){
+      quickMsg.textContent='Erreur réseau.'; quickMsg.className='msg error';
     }
   });
   </script>
