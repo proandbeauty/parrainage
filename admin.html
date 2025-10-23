@@ -484,21 +484,19 @@
     async function openProof(rib_id){
       try{
         const r = await fetch(`/api/admin/ribs-proof?id=${encodeURIComponent(rib_id)}`, {
-          headers:{ Authorization:'Bearer '+(document.getElementById('token').value || '').trim() }
+          headers:{ Authorization:'Bearer '+(document.getElementById('token').value||'').trim() }
         });
         const j = await r.json().catch(()=> ({}));
-        if (!r.ok) {
-          alert(j.error ? `Justificatif indisponible: ${j.error}` : 'Justificatif indisponible');
+        if(!r.ok){
+          alert(j.error ? `${j.error}${j.detail ? '\n'+j.detail : ''}` : 'Justificatif indisponible');
           return;
         }
-        if (!j.url) { alert('Lien justificatif manquant.'); return; }
-        // ouvre dans un nouvel onglet (évite les bloqueurs si appelé depuis un clic utilisateur)
-        window.open(j.url, '_blank', 'noopener');
-      }catch(e){
-        console.error(e);
-        alert('Impossible d’ouvrir le justificatif.');
-      }
-    }
+    if(!j.url){ alert('Lien justificatif manquant.'); return; }
+    window.open(j.url, '_blank', 'noopener');
+  }catch(e){
+    alert('Impossible d’ouvrir le justificatif.');
+  }
+}
 
     ribMoreBtn.addEventListener('click', ()=> loadRibs(false));
     ribExportBtn.addEventListener('click', ()=>{
