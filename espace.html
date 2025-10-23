@@ -33,8 +33,19 @@
     .banner .icon{font-weight:800}
     details.block{background:#0f141c;border:1px solid var(--divider);border-radius:12px;padding:0;margin-top:8px}
     details.block[open]{background:#0f141c}
-    details.block > summary{cursor:pointer;list-style:none;padding:12px 14px;font-weight:600;color:var(--text);}
+    details.block > summary{
+      cursor:pointer;list-style:none;padding:12px 14px;font-weight:600;color:var(--text);
+      display:flex;align-items:center;justify-content:space-between;user-select:none
+    }
     details.block > summary::-webkit-details-marker{display:none}
+    /* Chevron animé */
+    details.block > summary::after{
+      content:"▸"; font-size:14px; line-height:1; opacity:.9;
+      transform:rotate(0deg); transition:transform .2s ease;
+      margin-left:12px;
+    }
+    details.block[open] > summary::after{ transform:rotate(90deg); }
+    details.block > summary:hover{ color:var(--accent-2); }
     details.block .inner{padding:12px 14px;border-top:1px solid var(--divider)}
     .note{font-size:12px;color:var(--muted);margin-top:6px}
     .tag{display:inline-block;padding:2px 8px;border-radius:8px;border:1px solid var(--divider);background:#0f141c;font-size:12px}
