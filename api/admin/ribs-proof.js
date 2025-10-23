@@ -1,60 +1,81 @@
-// api/admin/ribs-proof.js
+// /api/admin/ribs-proof.js
+export const config = { runtime: 'nodejs' };
+
 import { createClient } from '@supabase/supabase-js';
 
-const TABLE_RIBS = 'bank_accounts'; // ← adapte si besoin
-const BUCKET     = 'kyc';            // ← ton bucket Supabase où sont stockés les justificatifs
-const EXPIRES    = 3600;             // 1h
+const SUPABASE_URL   = process.env.SUPABASE_URL;
+const SERVICE_KEY    = process.env.SUPABASE_SERVICE_KEY;
+const ADMIN_TOKEN    = process.env.ADMIN_TOKEN || '';
+const BUCKET         = 'bank_docs'; // ton bucket de justificatifs
 
-function json(d, s = 200) {
-  return new Response(JSON.stringify(d), {
-    status: s,
-    headers: { 'Content-Type': 'application/json' },
-  });
+const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+
+function unauthorized(res){ return res.status(401).json({ error: 'unauthorized' }); }
+function bad(res, msg, code=400, detail){ return res.status(code).json({ error: msg, detail }); }
+
+function checkAuth(req) {
+  const h = String(req.headers.authorization || '');
+  const tok = h.replace(/^Bearer\s+/i,'').trim();
+  return tok && tok === ADMIN_TOKEN;
 }
-function requireAdmin(req) {
-  const h = req.headers.get('authorization') || '';
-  const tok = h.split(' ')[1] || '';
-  if (!tok || tok !== process.env.ADMIN_TOKEN) {
-    throw new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+
+// normalise un chemin vers la clé du bucket (enlève le prefix bank_docs/ et éventuelle URL complète)
+function toObjectKey(doc_path) {
+  if (!doc_path) return null;
+  let p = String(doc_path);
+  // si URL complète de storage, on garde la partie après /object/public/BUCKET/ ou /object/sign/BUCKET/
+  const m = p.match(/\/object\/(?:public|sign)\/([^/]+)\/(.+)$/);
+  if (m && m[1]) {
+    // m[1] = bucket, m[2] = key
+    if (m[1] === BUCKET) return m[2];
   }
-}
-function supa() {
-  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+  // si commence par bank_docs/
+  if (p.startsWith(BUCKET + '/')) return p.slice(BUCKET.length + 1);
+  // si commence par /bank_docs/
+  if (p.startsWith('/' + BUCKET + '/')) return p.slice(BUCKET.length + 2);
+  // sinon on suppose que c'est déjà la clé interne
+  return p;
 }
 
-/**
- * GET /api/admin/ribs-proof?id=<rib_id>
- * -> { ok:true, url:"https://..." } (lien signé valable 1h)
- */
-export default async function handler(req) {
+export default async function handler(req, res) {
   try {
-    requireAdmin(req);
+    if (req.method !== 'GET') return bad(res, 'Method Not Allowed', 405);
+    if (!checkAuth(req))       return unauthorized(res);
 
-    const url = new URL(req.url);
-    const id  = url.searchParams.get('id');
-    if (!id) return json({ error: 'Missing id' }, 400);
+    const id = String(req.query.id || '').trim();
+    if (!id) return bad(res, 'id requis');
 
-    const sb = supa();
-    const { data: rib, error } = await sb
-      .from(TABLE_RIBS)
+    // récupère chemin du justificatif depuis bank_accounts
+    const { data: row, error } = await supabase
+      .from('bank_accounts')
       .select('id, doc_path')
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
-    if (error) return json({ error: 'Not found', detail: error.message }, 404);
-    if (!rib?.doc_path) return json({ error: 'No document for this RIB' }, 404);
+    if (error) {
+      console.error('[ribs-proof] select error:', error);
+      return bad(res, 'Erreur base de données');
+    }
+    if (!row) return bad(res, 'RIB introuvable', 404);
+    if (!row.doc_path) return bad(res, 'Aucun justificatif', 404);
 
-    // doc_path = chemin relatif dans le bucket (ex: "ribs/abcd1234.pdf")
-    const { data: signed, error: e2 } = await sb
+    const objectKey = toObjectKey(row.doc_path);
+    if (!objectKey) return bad(res, 'Chemin justificatif invalide');
+
+    // crée une URL signée valable 1h
+    const { data: signed, error: e2 } = await supabase
       .storage
       .from(BUCKET)
-      .createSignedUrl(rib.doc_path, EXPIRES);
+      .createSignedUrl(objectKey, 60 * 60);
 
-    if (e2) return json({ error: 'Signed URL error', detail: e2.message }, 500);
+    if (e2 || !signed?.signedUrl) {
+      console.error('[ribs-proof] signed url error:', e2);
+      return bad(res, 'Impossible de signer le justificatif');
+    }
 
-    return json({ ok: true, url: signed?.signedUrl || null, expiresIn: EXPIRES });
+    return res.status(200).json({ ok: true, url: signed.signedUrl });
   } catch (e) {
-    if (e instanceof Response) return e;
-    return json({ error: 'Unexpected', detail: String(e) }, 500);
+    console.error('[ribs-proof] server error:', e);
+    return bad(res, 'Erreur serveur', 500, e.message || String(e));
   }
 }

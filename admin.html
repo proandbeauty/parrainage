@@ -481,9 +481,23 @@
         .catch(()=>{ b.disabled=false; b.style.opacity=1; showToast('Erreur réseau', false); });
     });
 
-    async function openProof(id){
-      const r=await fetch(`/api/admin/ribs-proof?id=${encodeURIComponent(id)}`,{headers:auth()});
-      const j=await r.json(); if(!r.ok||!j.url){ showToast(j.error||'Justificatif indisponible', false); return; } window.open(j.url,'_blank','noopener');
+    async function openProof(rib_id){
+      try{
+        const r = await fetch(`/api/admin/ribs-proof?id=${encodeURIComponent(rib_id)}`, {
+          headers:{ Authorization:'Bearer '+(document.getElementById('token').value || '').trim() }
+        });
+        const j = await r.json().catch(()=> ({}));
+        if (!r.ok) {
+          alert(j.error ? `Justificatif indisponible: ${j.error}` : 'Justificatif indisponible');
+          return;
+        }
+        if (!j.url) { alert('Lien justificatif manquant.'); return; }
+        // ouvre dans un nouvel onglet (évite les bloqueurs si appelé depuis un clic utilisateur)
+        window.open(j.url, '_blank', 'noopener');
+      }catch(e){
+        console.error(e);
+        alert('Impossible d’ouvrir le justificatif.');
+      }
     }
 
     ribMoreBtn.addEventListener('click', ()=> loadRibs(false));
