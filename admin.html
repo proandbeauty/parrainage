@@ -9,6 +9,7 @@
       --bg:#0b0f14; --card:#121821; --text:#eaf2fb; --muted:#9fb0c3;
       --stroke:rgba(255,255,255,.12); --divider:rgba(255,255,255,.08);
       --accent:#5dd4a3; --accent-2:#87e6be; --red:#ff6b6b;
+      --green:#38d39f; --amber:#ffd166;
     }
     body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto}
     .wrap{max-width:1200px;margin:30px auto;padding:0 16px}
@@ -16,20 +17,50 @@
     h1,h2{margin:6px 0 12px}
     .row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
     input,select{background:#0f141c;border:1px solid var(--stroke);color:var(--text);border-radius:10px;padding:10px}
-    button{background:var(--accent);border:none;color:#06281c;font-weight:700;padding:10px 14px;border-radius:10px;cursor:pointer}
+    button{background:var(--accent);border:none;color:#06281c;font-weight:700;padding:10px 14px;border-radius:10px;cursor:pointer;transition:opacity .15s}
     button:hover{background:var(--accent-2)}
     .btn-ghost{background:#0f141c;border:1px solid var(--stroke);color:#eaf2fb}
     .btn-red{background:var(--red);color:#1b0b0b}
     .btn-red:hover{filter:brightness(1.05)}
+    .btn-done{background:#0f141c;border:1px solid var(--divider);color:var(--muted);cursor:default}
+    .btn-done:hover{background:#0f141c}
+
     table{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px}
     th,td{border-bottom:1px solid var(--divider);padding:8px;vertical-align:top}
     th{color:#9fb0c3;text-align:left}
     .muted{color:#9fb0c3}
     .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#0f141c;border:1px solid rgba(255,255,255,.15);font-size:12px}
+    .pill.ok{border-color:rgba(93,212,163,.6);color:#9bf0cf}
+    .pill.warn{border-color:rgba(255,209,102,.6);color:#ffe6ad}
+    .pill.bad{border-color:rgba(255,107,107,.6);color:#ffb3b3}
+
     .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
     .tab{background:#0f141c;border:1px solid var(--stroke);color:var(--text);padding:8px 12px;border-radius:10px;cursor:pointer}
     .tab.active{background:var(--accent);color:#06281c;border-color:transparent;font-weight:800}
     .hide{display:none !important}
+
+    /* Ligne flash (succès / rejet) */
+    tr.flash-ok{animation: flashok 1.4s ease-out}
+    tr.flash-bad{animation: flashbad 1.4s ease-out}
+    @keyframes flashok {
+      0%{background:rgba(56,211,159,.25)}
+      100%{background:transparent}
+    }
+    @keyframes flashbad {
+      0%{background:rgba(255,107,107,.25)}
+      100%{background:transparent}
+    }
+
+    /* Toast */
+    .toastbox{position:fixed;top:16px;right:16px;display:flex;flex-direction:column;gap:8px;z-index:9999}
+    .toast{
+      background:#0f141c;border:1px solid var(--divider);color:var(--text);
+      padding:10px 12px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.35);
+      display:flex;align-items:center;gap:8px;min-width:220px
+    }
+    .toast.ok .dot{width:10px;height:10px;border-radius:50%;background:var(--green)}
+    .toast.bad .dot{width:10px;height:10px;border-radius:50%;background:var(--red)}
+    .toast .label{font-weight:700}
   </style>
 </head>
 <body>
@@ -167,10 +198,32 @@
     </div>
   </div>
 
+  <!-- Toast container -->
+  <div class="toastbox" id="toastbox"></div>
+
   <script>
     // --------- Helpers ----------
     const $ = q => document.querySelector(q);
     const debounce = (fn, ms=350)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
+
+    function showToast(text, ok=true){
+      const box = $('#toastbox');
+      const div = document.createElement('div');
+      div.className = 'toast ' + (ok ? 'ok' : 'bad');
+      div.innerHTML = `<span class="dot"></span><span class="label">${text}</span>`;
+      box.appendChild(div);
+      setTimeout(()=>{ div.style.opacity=.9 },10);
+      setTimeout(()=>{ div.style.opacity=0; div.style.transform='translateY(-6px)'; }, 2200);
+      setTimeout(()=>{ div.remove(); }, 2600);
+    }
+
+    function setPill(el, status){
+      el.textContent = status;
+      el.classList.remove('ok','warn','bad');
+      if (status==='approved' || status==='paid' || status==='validé' || status==='approved') el.classList.add('ok');
+      else if (status==='pending' || status==='en attente') el.classList.add('warn');
+      else if (status==='rejected') el.classList.add('bad');
+    }
 
     const admTokenEl = $('#adm_token');
     const admSearchEl = $('#adm_search');
@@ -257,7 +310,10 @@
             const tr=document.createElement('tr');
             tr.innerHTML=`
               <td>
-                <div><b>${Number(c.amount).toFixed(2)} ${c.currency||''}</b> <span class="pill">${c.status}</span> <span class="pill">${c.role}</span></div>
+                <div><b>${Number(c.amount).toFixed(2)} ${c.currency||''}</b>
+                  <span class="pill ${c.status==='paid'?'ok':c.status==='approved'?'ok':c.status==='pending'?'warn':''}" data-pill="status">${c.status}</span>
+                  <span class="pill">${c.role}</span>
+                </div>
                 <div class="muted">${c.created_at?new Date(c.created_at).toLocaleString():''}</div>
                 <div class="muted">ID: ${c.id||''}</div>
               </td>
@@ -272,8 +328,12 @@
                 <div class="muted">${s.created_at?new Date(s.created_at).toLocaleString():''}</div>
               </td>
               <td>
-                <button class="btn-ghost" data-comm="approved" data-id="${c.id}">Approuver</button>
-                <button class="btn-red" data-comm="paid" data-id="${c.id}">Marquer payé</button>
+                ${c.status==='approved'||c.status==='paid'
+                  ? '<button class="btn-done" disabled>Approuvé ✓</button>'
+                  : `<button class="btn-ghost" data-comm="approved" data-id="${c.id}">Approuver</button>`}
+                ${c.status==='paid'
+                  ? '<button class="btn-done" disabled>Payé ✓</button>'
+                  : `<button class="btn-red" data-comm="paid" data-id="${c.id}">Marquer payé</button>`}
               </td>`;
             commTbody.appendChild(tr);
           }
@@ -288,17 +348,47 @@
       }catch(e){ admMsg.textContent='Erreur chargement (commissions)'; console.error(e); }
     }
 
+    function updateCommissionRowUI(btn, newStatus){
+      const tr = btn.closest('tr');
+      const pill = tr.querySelector('[data-pill="status"]');
+      setPill(pill, newStatus);
+      // Transforme les boutons
+      const [b1, b2] = tr.querySelectorAll('td:last-child button');
+      if(newStatus === 'approved'){
+        if(b1){ b1.textContent='Approuvé ✓'; b1.className='btn-done'; b1.disabled=true; }
+        if(b2 && b2.classList.contains('btn-red')) { /* garder payable */ }
+        tr.classList.add('flash-ok');
+      }
+      if(newStatus === 'paid'){
+        if(b2){ b2.textContent='Payé ✓'; b2.className='btn-done'; b2.disabled=true; }
+        if(b1){ b1.textContent='Approuvé ✓'; b1.className='btn-done'; b1.disabled=true; }
+        tr.classList.add('flash-ok');
+      }
+      setTimeout(()=> tr.classList.remove('flash-ok','flash-bad'),1500);
+    }
+
     commTbody.addEventListener('click',(e)=>{
       const btn=e.target.closest('button[data-comm]'); if(!btn) return;
-      fetch('/api/admin/set-commission-status',{method:'POST',headers:{'Content-Type':'application/json',...auth()},body:JSON.stringify({commission_id:btn.dataset.id,status:btn.dataset.comm})})
-        .then(r=>r.json().then(j=>({ok:r.ok,j}))).then(({ok,j})=>{ if(!ok){alert(j.error||'Erreur');return;} loadCommissions(true); })
-        .catch(()=>alert('Erreur'));
+      const id = btn.dataset.id, to = btn.dataset.comm;
+      // Optimistic disable to prevent double click
+      btn.disabled = true; btn.style.opacity = .7;
+      fetch('/api/admin/set-commission-status',{
+        method:'POST',headers:{'Content-Type':'application/json',...auth()},body:JSON.stringify({commission_id:id,status:to})
+      })
+        .then(r=>r.json().then(j=>({ok:r.ok,j})))
+        .then(({ok,j})=>{
+          if(!ok){ btn.disabled=false; btn.style.opacity=1; showToast(j.error||'Erreur', false); return; }
+          updateCommissionRowUI(btn, to);
+          showToast(to==='approved'?'Commission approuvée ✅':'Commission marquée payée 💸', true);
+        })
+        .catch(()=>{ btn.disabled=false; btn.style.opacity=1; showToast('Erreur réseau', false); });
     });
+
     commMoreBtn.addEventListener('click', ()=>{ if(commHasMore) loadCommissions(false); });
     commExportBtn.addEventListener('click', async ()=>{
       const p={}; if(commStatusEl.value!=='all') p.status=commStatusEl.value;
       const res=await fetch(`/api/admin/export-commissions?${new URLSearchParams(p).toString()}`,{headers:auth()});
-      if(!res.ok){ alert('Export impossible'); return; }
+      if(!res.ok){ showToast('Export impossible', false); return; }
       const blob=await res.blob(); const a=document.createElement('a');
       a.href=URL.createObjectURL(blob); a.download=`export-commissions-${new Date().toISOString().slice(0,10)}.csv`;
       document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
@@ -330,11 +420,21 @@
           for(const row of ribLastBatch){
             const ref=row.referrer||{}; const tr=document.createElement('tr');
             tr.innerHTML=`
-              <td><div><b>${row.id}</b> <span class="pill">${row.status}</span></div><div class="muted">${row.created_at?new Date(row.created_at).toLocaleString():''}</div></td>
+              <td>
+                <div><b>${row.id}</b> <span class="pill ${row.status==='approved'?'ok':row.status==='pending'?'warn':row.status==='rejected'?'bad':''}" data-pill="rib">${row.status}</span></div>
+                <div class="muted">${row.created_at?new Date(row.created_at).toLocaleString():''}</div>
+              </td>
               <td><div><b>${(ref.first_name||'')+' '+(ref.last_name||'')}</b></div><div class="muted">${ref.email||''}</div><div class="muted">Code: ${ref.referral_code||''}</div></td>
               <td><div><b>${maskIban(row.iban_masked||row.iban||'')}</b></div><div class="muted">${row.bic?('BIC: '+row.bic):''}</div><div class="muted">${row.holder_name?('Titulaire: '+row.holder_name):''}</div></td>
               <td>${row.doc_path?`<button class="btn-ghost" data-proof="${row.id}">Voir justificatif</button>`:'<span class="muted">—</span>'}</td>
-              <td><button class="btn-ghost" data-rib="approved" data-id="${row.id}">Valider</button> <button class="btn-red" data-rib="rejected" data-id="${row.id}">Rejeter</button></td>`;
+              <td>
+                ${row.status==='approved'
+                  ? '<button class="btn-done" disabled>Validé ✓</button>'
+                  : `<button class="btn-ghost" data-rib="approved" data-id="${row.id}">Valider</button>`}
+                ${row.status==='rejected'
+                  ? '<button class="btn-done" disabled>Rejeté ✓</button>'
+                  : `<button class="btn-red" data-rib="rejected" data-id="${row.id}">Rejeter</button>`}
+              </td>`;
             ribTbody.appendChild(tr);
           }
         }
@@ -343,23 +443,49 @@
       }catch(e){ admMsg.textContent='Erreur chargement (RIB)'; console.error(e); }
     }
 
+    function updateRibRowUI(btn, newStatus){
+      const tr = btn.closest('tr');
+      const pill = tr.querySelector('[data-pill="rib"]');
+      setPill(pill, newStatus);
+      const [b1, b2] = tr.querySelectorAll('td:last-child button');
+      if(newStatus==='approved'){
+        if(b1){ b1.textContent='Validé ✓'; b1.className='btn-done'; b1.disabled=true; }
+        if(b2){ b2.classList.remove('btn-done'); b2.disabled=false; } // on peut toujours rejeter plus tard si besoin
+        tr.classList.add('flash-ok'); showToast('RIB validé ✅', true);
+      } else if(newStatus==='rejected'){
+        if(b2){ b2.textContent='Rejeté ✓'; b2.className='btn-done'; b2.disabled=true; }
+        if(b1){ b1.className='btn-ghost'; b1.disabled=false; b1.textContent='Valider'; } // possibilité de valider après rejet
+        tr.classList.add('flash-bad'); showToast('RIB rejeté ❌', false);
+      }
+      setTimeout(()=> tr.classList.remove('flash-ok','flash-bad'),1500);
+    }
+
     document.querySelectorAll('th[data-sort]').forEach(th=>{
       th.addEventListener('click', ()=>{ const col=th.getAttribute('data-sort'); if(col==='referrer') return;
         if(ribSortBy===col) ribSortDir=(ribSortDir==='asc'?'desc':'asc'); else { ribSortBy=col; ribSortDir='asc'; }
         loadRibs(true);
       });
     });
+
     ribTbody.addEventListener('click', (e)=>{
       const p=e.target.closest('button[data-proof]'); if(p){ openProof(p.dataset.proof); return; }
       const b=e.target.closest('button[data-rib]'); if(!b) return;
-      fetch('/api/admin/ribs-set-status',{method:'POST',headers:{'Content-Type':'application/json',...auth()},body:JSON.stringify({id:b.dataset.id,status:b.dataset.rib,note:''})})
-        .then(r=>r.json().then(j=>({ok:r.ok,j}))).then(({ok,j})=>{ if(!ok){alert(j.error||'Erreur');return;} loadRibs(true); })
-        .catch(()=>alert('Erreur'));
+      const id=b.dataset.id, to=b.dataset.rib;
+      b.disabled=true; b.style.opacity=.7;
+      fetch('/api/admin/ribs-set-status',{method:'POST',headers:{'Content-Type':'application/json',...auth()},body:JSON.stringify({id,status:to,note:''})})
+        .then(r=>r.json().then(j=>({ok:r.ok,j})))
+        .then(({ok,j})=>{
+          if(!ok){ b.disabled=false; b.style.opacity=1; showToast(j.error||'Erreur', false); return; }
+          updateRibRowUI(b, to);
+        })
+        .catch(()=>{ b.disabled=false; b.style.opacity=1; showToast('Erreur réseau', false); });
     });
+
     async function openProof(id){
       const r=await fetch(`/api/admin/ribs-proof?id=${encodeURIComponent(id)}`,{headers:auth()});
-      const j=await r.json(); if(!r.ok||!j.url){ alert(j.error||'Justificatif indisponible'); return; } window.open(j.url,'_blank','noopener');
+      const j=await r.json(); if(!r.ok||!j.url){ showToast(j.error||'Justificatif indisponible', false); return; } window.open(j.url,'_blank','noopener');
     }
+
     ribMoreBtn.addEventListener('click', ()=> loadRibs(false));
     ribExportBtn.addEventListener('click', ()=>{
       const url=`/api/admin/ribs-list?status=${encodeURIComponent(ribStatusEl.value)}&limit=10000&offset=0&search=${encodeURIComponent(admSearchEl.value.trim())}&format=csv&sort_by=${encodeURIComponent(ribSortBy)}&order=${encodeURIComponent(ribSortDir)}`;
@@ -420,7 +546,7 @@
     }
 
     salesExportBtn.addEventListener('click', ()=>{
-      if(!salesRows.length){ alert('Aucune donnée à exporter.'); return; }
+      if(!salesRows.length){ showToast('Aucune donnée à exporter', false); return; }
       const head=['date','order_id','institut','professionnel','cp','montant','devise'];
       const lines=[head.join(';')];
       salesRows.forEach(s=>{
@@ -475,7 +601,7 @@
               <td><b>${(x.first_name||'')+' '+(x.last_name||'')}</b></td>
               <td>${x.email||'-'}</td>
               <td>${x.code||'-'}</td>
-              <td><span class="pill">${x.rib_status||'missing'}</span></td>
+              <td><span class="pill ${x.rib_status==='approved'?'ok':x.rib_status==='pending'?'warn':x.rib_status==='rejected'?'bad':''}">${x.rib_status||'missing'}</span></td>
               <td>${x.last_activity?new Date(x.last_activity).toLocaleString():'-'}</td>`;
             refsTbody.appendChild(tr);
           }
@@ -483,19 +609,6 @@
         refsOffset = j.nextOffset ?? (refsOffset + (j.items?.length||0));
       }catch(e){ admMsg.textContent='Erreur chargement (bénéficiaires)'; console.error(e); }
     }
-
-    refsExportBtn.addEventListener('click', ()=>{
-      if(!refsRows.length){ alert('Aucune donnée à exporter.'); return; }
-      const head=['prenom nom','email','code','rib_statut','derniere_activite'];
-      const lines=[head.join(';')];
-      refsRows.forEach(x=>{
-        const r=[ `${x.first_name||''} ${x.last_name||''}`, x.email||'', x.code||'', x.rib_status||'', x.last_activity?new Date(x.last_activity).toLocaleString():'' ].map(v=>`"${String(v).replace(/"/g,'""')}"`);
-        lines.push(r.join(';'));
-      });
-      const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a');
-      a.href=URL.createObjectURL(blob); a.download=`export-beneficiaires-${new Date().toISOString().slice(0,10)}.csv`;
-      document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
-    });
 
     // ====== Charge TOUT en parallèle ======
     function loadAll(reset){
