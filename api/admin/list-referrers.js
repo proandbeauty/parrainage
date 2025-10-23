@@ -1,131 +1,87 @@
-// /api/admin/list-referrers.js
 export const config = { runtime: 'nodejs' };
+
 import { createClient } from '@supabase/supabase-js';
-
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY;
+const ADMIN_TOKEN  = process.env.ADMIN_TOKEN || '';
+const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+const ok  = (res, body) => res.status(200).json(body);
+const bad = (res, msg, code=400) => res.status(code).json({ error: msg });
+const authed = (req) => String(req.headers.authorization||'').replace(/^Bearer\s+/i,'').trim() === ADMIN_TOKEN;
 
-export default async function handler(req, res) {
-  try {
-    if (req.method !== 'GET') return res.status(405).json({ error: 'Method Not Allowed' });
+/**
+ * Hypothèses:
+ * - Table "referrers": id, first_name, last_name, email, referral_code, created_at, updated_at
+ * - Table "bank_accounts": referrer_id, status ('approved'/'pending'/'rejected'), ...
+ * On left-join côté SQL via une vue ou on fait en deux temps ici.
+ */
+export default async function handler(req, res){
+  try{
+    if(req.method!=='GET') return bad(res,'Method Not Allowed',405);
+    if(!authed(req))       return bad(res,'Unauthorized',401);
 
-    // Auth admin
-    const auth = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-    if (!ADMIN_TOKEN || auth !== ADMIN_TOKEN) {
-      return res.status(401).json({ error: 'unauthorized' });
-    }
+    const limit  = Math.min(parseInt(req.query.limit||'100',10), 500);
+    const offset = parseInt(req.query.offset||'0',10);
+    const search = String(req.query.search||'').trim();
+    const rib    = String(req.query.rib||'all').toLowerCase(); // approved|pending|rejected|missing|all
+    const dateFrom = String(req.query.date_from||'').trim();
+    const dateTo   = String(req.query.date_to||'').trim();
 
-    const q = req.query || {};
-    const search = String(q.search || '').trim();
-    const limit = Math.min(parseInt(q.limit || '50', 10), 200);
-    const offset = parseInt(q.offset || '0', 10);
-
-    const ribFilter = String(q.rib || 'all').toLowerCase(); // approved|pending|rejected|missing|all
-    const date_from = q.date_from ? new Date(q.date_from) : null;
-    const date_to   = q.date_to ? new Date(q.date_to) : null;
-
-    // 1) On récupère les referrers (paged)
-    let sel = supabase
+    let q = supabase
       .from('referrers')
-      .select('id, first_name, last_name, email, referral_code, created_at')
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .select(`id, first_name, last_name, email, referral_code, created_at, updated_at`)
+      .order('updated_at',{ascending:false})
+      .limit(2000);
 
-    if (search) {
-      sel = sel.or(
-        `first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,referral_code.ilike.%${search}%`
-      );
+    if(search){
+      const term = search.replace(/[%,"']/g,'');
+      q = q.or([
+        `first_name.ilike.%${term}%`,
+        `last_name.ilike.%${term}%`,
+        `email.ilike.%${term}%`,
+        `referral_code.ilike.%${term}%`
+      ].join(','));
+    }
+    if(dateFrom) q = q.gte('created_at', dateFrom);
+    if(dateTo)   q = q.lte('created_at', dateTo+'T23:59:59');
+
+    const { data: refs, error } = await q;
+    if(error){
+      console.error('Supabase (referrers) error:', error);
+      return bad(res,'Erreur base de données (bénéficiaires).');
     }
 
-    const { data: refs, error: errRefs } = await sel;
-    if (errRefs) {
-      console.error(errRefs);
-      return res.status(500).json({ error: 'supabase_referrers_failed' });
-    }
-    const ids = (refs || []).map(r => r.id);
-    if (ids.length === 0) {
-      return res.status(200).json({ ok: true, items: [], nextOffset: offset }); // page vide
-    }
-
-    // 2) On récupère tous les bank_accounts pour ces referrers et on garde le plus récent par referrer_id
-    const { data: banks, error: errBanks } = await supabase
+    // RIB statuses (map)
+    const { data: ribs, error: e2 } = await supabase
       .from('bank_accounts')
-      .select('id, referrer_id, status, created_at')
-      .in('referrer_id', ids)
-      .order('created_at', { ascending: false });
-    if (errBanks) {
-      console.error(errBanks);
-      return res.status(500).json({ error: 'supabase_bank_accounts_failed' });
+      .select('referrer_id, status, updated_at');
+    if(e2){
+      console.error('Supabase (ribs for referrers) error:', e2);
+      return bad(res,'Erreur lecture RIB (bénéficiaires).');
     }
-    const latestByRef = new Map(); // referrer_id -> status
-    for (const b of banks || []) {
-      if (!latestByRef.has(b.referrer_id)) {
-        latestByRef.set(b.referrer_id, { status: (b.status || '').toLowerCase(), created_at: b.created_at });
-      }
-    }
+    const map = new Map();
+    ribs?.forEach(r=> map.set(r.referrer_id, r.status || 'pending'));
 
-    // 3) On récupère l'activité (max created_at) dans commissions pour beneficiary_id in ids
-    const { data: acts, error: errActs } = await supabase
-      .from('commissions')
-      .select('beneficiary_id, created_at')
-      .in('beneficiary_id', ids)
-      .order('created_at', { ascending: false }); // on triera en JS
-    if (errActs) {
-      console.error(errActs);
-      return res.status(500).json({ error: 'supabase_commissions_failed' });
-    }
-    const lastAct = new Map(); // referrer_id -> last_created_at
-    for (const a of acts || []) {
-      const prev = lastAct.get(a.beneficiary_id);
-      if (!prev || new Date(a.created_at) > new Date(prev)) {
-        lastAct.set(a.beneficiary_id, a.created_at);
-      }
+    let rows = (refs||[]).map(r=>({
+      id: r.id,
+      first_name: r.first_name,
+      last_name: r.last_name,
+      email: r.email,
+      code: r.referral_code,
+      last_activity: r.updated_at || r.created_at,
+      rib_status: map.get(r.id) || 'missing'
+    }));
+
+    if(rib && rib!=='all'){
+      rows = rows.filter(x => x.rib_status === rib);
     }
 
-    // 4) Composition + filtres RIB/date
-    let rows = (refs || []).map(r => {
-      const rib = latestByRef.get(r.id);
-      const rib_status = rib ? rib.status : 'missing';
-      const last_activity = lastAct.get(r.id) || null;
-      return {
-        id: r.id,
-        first_name: r.first_name,
-        last_name: r.last_name,
-        email: r.email,
-        code: r.referral_code,
-        created_at: r.created_at,
-        rib_status,
-        last_activity
-      };
-    });
-
-    // Filtre RIB
-    if (ribFilter !== 'all') {
-      rows = rows.filter(x => (x.rib_status || 'missing') === ribFilter);
-    }
-    // Filtre sur date d’activité
-    if (date_from) rows = rows.filter(x => !x.last_activity || new Date(x.last_activity) >= date_from);
-    if (date_to)   rows = rows.filter(x => !x.last_activity || new Date(x.last_activity) <= date_to);
-
-    // Tri: dernière activité desc, fallback created_at
-    rows.sort((a,b)=>{
-      const da = a.last_activity ? new Date(a.last_activity) : new Date(0);
-      const db = b.last_activity ? new Date(b.last_activity) : new Date(0);
-      if (db - da !== 0) return db - da;
-      return (new Date(b.created_at)) - (new Date(a.created_at));
-    });
-
-    return res.status(200).json({
-      ok: true,
-      items: rows,
-      nextOffset: offset + rows.length
-    });
-
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: 'server' });
+    const sliced = rows.slice(offset, offset+limit);
+    const nextOffset = offset + sliced.length;
+    return ok(res,{ items: sliced, nextOffset });
+  }catch(e){
+    console.error('Server (list-referrers) error:', e);
+    return bad(res,'Erreur serveur (bénéficiaires).',500);
   }
 }
