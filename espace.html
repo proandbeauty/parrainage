@@ -5,23 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pro&Beauty — Mon espace</title>
   <style>
-    body{margin:0;background:#0b0f14;color:#eaf2fb;font-family:system-ui,-apple-system,Segoe UI,Roboto}
+    :root{
+      --bg:#0b0f14; --card:#121821; --text:#eaf2fb; --muted:#9fb0c3;
+      --stroke:rgba(255,255,255,.12); --divider:rgba(255,255,255,.08);
+      --accent:#5dd4a3; --accent-2:#87e6be; --warn:#ffb84d; --error:#ff6b6b; --ok:#64dfb8;
+    }
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto}
     .wrap{max-width:1100px;margin:30px auto;padding:0 16px}
-    .card{background:#121821;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:18px;margin-bottom:14px}
+    .card{background:var(--card);border:1px solid var(--divider);border-radius:14px;padding:18px;margin-bottom:14px}
     h1,h2{margin:6px 0 14px}
     .row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-    input,button{background:#0f141c;border:1px solid rgba(255,255,255,.12);color:#eaf2fb;border-radius:10px;padding:10px}
-    button{background:#5dd4a3;border:none;color:#06281c;font-weight:700;cursor:pointer}
-    button:hover{background:#87e6be}
+    input,button{background:#0f141c;border:1px solid var(--stroke);color:var(--text);border-radius:10px;padding:10px}
+    button{background:var(--accent);border:none;color:#06281c;font-weight:700;cursor:pointer}
+    button:hover{background:var(--accent-2)}
     table{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px}
-    th,td{border-bottom:1px solid rgba(255,255,255,.08);padding:8px;vertical-align:top}
-    th{color:#9fb0c3;text-align:left}
-    .muted{color:#9fb0c3}
+    th,td{border-bottom:1px solid var(--divider);padding:8px;vertical-align:top}
+    th{color:var(--muted);text-align:left}
+    .muted{color:var(--muted)}
     .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#0f141c;border:1px solid rgba(255,255,255,.15);font-size:12px;margin-left:6px}
     .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
     @media(max-width:900px){.grid{grid-template-columns:1fr}}
     .codebox{padding:10px;border:1px dashed rgba(255,255,255,.15);border-radius:10px;background:#0f141c;font-family:ui-monospace,Consolas,Menlo,monospace}
     .toprow{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+    .banner{border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px 12px;margin-bottom:12px;display:flex;gap:10px;align-items:flex-start}
+    .banner.warn{background:rgba(255,184,77,.08);border-color:rgba(255,184,77,.25)}
+    .banner.ok{background:rgba(100,223,184,.08);border-color:rgba(100,223,184,.25)}
+    .banner .icon{font-weight:800}
+    details.block{background:#0f141c;border:1px solid var(--divider);border-radius:12px;padding:0;margin-top:8px}
+    details.block[open]{background:#0f141c}
+    details.block > summary{cursor:pointer;list-style:none;padding:12px 14px;font-weight:600;color:var(--text);}
+    details.block > summary::-webkit-details-marker{display:none}
+    details.block .inner{padding:12px 14px;border-top:1px solid var(--divider)}
+    .note{font-size:12px;color:var(--muted);margin-top:6px}
+    .tag{display:inline-block;padding:2px 8px;border-radius:8px;border:1px solid var(--divider);background:#0f141c;font-size:12px}
+    .right{text-align:right}
   </style>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 </head>
@@ -32,11 +49,26 @@
     <div class="card" id="loginCard">
       <h1>Mon espace</h1>
       <div class="row">
-        <input id="login_email" type="email" placeholder="Votre email (commercial)" style="min-width:320px">
+        <input id="login_email" type="email" placeholder="Votre email (commercial)" style="min-width:320px" autocomplete="email">
         <button id="login_btn">Recevoir le lien de connexion</button>
       </div>
       <div class="muted">Vous recevrez un <b>lien magique</b> valable 10 minutes. Cliquez dessus pour accéder à votre espace.</div>
       <div id="login_msg" class="muted" style="margin-top:8px"></div>
+    </div>
+
+    <!-- Alerte RIB globale -->
+    <div class="card banner warn" id="payoutAlert" style="display:none">
+      <div class="icon">⚠️</div>
+      <div>
+        <div><b>RIB requis pour les versements :</b> tant que votre RIB n’est pas <b>téléversé et validé</b>, aucune commission ne pourra être <b>payée</b>.</div>
+        <div class="note">Dès la validation de votre RIB par l’équipe Pro&Beauty, un message de confirmation apparaîtra ici.</div>
+      </div>
+    </div>
+
+    <!-- Confirmation RIB ok -->
+    <div class="card banner ok" id="payoutOk" style="display:none">
+      <div class="icon">✅</div>
+      <div>Votre RIB est <b>validé</b>. Les commissions approuvées pourront être payées selon le cycle de règlement.</div>
     </div>
 
     <!-- Dashboard -->
@@ -58,6 +90,7 @@
           <div>En attente : <b id="sum_pending">0 €</b></div>
           <div>Approuvées : <b id="sum_approved">0 €</b></div>
           <div>Payées : <b id="sum_paid">0 €</b></div>
+          <div id="sum_note" class="note" style="display:none">ℹ️ Les paiements ne peuvent pas être effectués tant que votre RIB n’est pas validé.</div>
         </div>
 
         <div class="card">
@@ -68,16 +101,36 @@
       </div>
     </div>
 
-    <!-- Dernières commissions -->
+    <!-- Dernières commissions (aperçu) -->
     <div class="card" id="commCard" style="display:none">
       <h2>Dernières commissions</h2>
       <table>
         <thead>
           <tr>
-            <th>Date</th><th>Statut</th><th>Rôle</th><th>Montant</th><th>Commande</th>
+            <th>Date</th><th>Statut</th><th>Type</th><th>Montant</th><th>Commande</th>
           </tr>
         </thead>
         <tbody id="comm_tbody"><tr><td colspan="5" class="muted">Aucune donnée.</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- Commissions détaillées -->
+    <div class="card" id="commDetailCard" style="display:none">
+      <h2>Mes commissions — détail</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Statut</th>
+            <th>Type</th>
+            <th>Montant</th>
+            <th>N° commande</th>
+            <th>Institut</th>
+            <th>Professionnel</th>
+            <th>Code postal</th>
+          </tr>
+        </thead>
+        <tbody id="comm_detail_tbody"><tr><td colspan="8" class="muted">Chargement…</td></tr></tbody>
       </table>
     </div>
 
@@ -94,41 +147,54 @@
       </table>
     </div>
 
-    <!-- Edition profil -->
-    <div class="card" id="profileCard" style="display:none">
-      <h2>Mes informations</h2>
-      <div class="row">
-        <input id="p_first" type="text" placeholder="Prénom" style="min-width:180px">
-        <input id="p_last" type="text" placeholder="Nom" style="min-width:180px">
-        <input id="p_phone" type="text" placeholder="Téléphone" style="min-width:200px">
-        <button id="p_save">Sauvegarder</button>
+    <!-- Mes informations (rétracté par défaut) -->
+    <details class="block card" id="profileCard" style="display:none">
+      <summary>Mes informations</summary>
+      <div class="inner">
+        <div class="row">
+          <input id="p_first" type="text" placeholder="Prénom" style="min-width:180px">
+          <input id="p_last" type="text" placeholder="Nom" style="min-width:180px">
+          <input id="p_phone" type="text" placeholder="Téléphone" style="min-width:200px">
+          <button id="p_save">Sauvegarder</button>
+        </div>
+        <div id="p_msg" class="muted"></div>
       </div>
-      <div id="p_msg" class="muted"></div>
-    </div>
+    </details>
 
-    <!-- Mon RIB & Paiement -->
-    <div class="card" id="ribCard" style="display:none">
-      <h2>Mon RIB & Paiement</h2>
-      <div class="row">
-        <input id="rib_titulaire" type="text" placeholder="Titulaire du compte" style="min-width:260px">
-        <input id="rib_iban" type="text" placeholder="IBAN" style="min-width:260px">
-        <input id="rib_bic" type="text" placeholder="BIC (optionnel)" style="min-width:180px">
-        <input id="rib_banque" type="text" placeholder="Banque (optionnel)" style="min-width:220px">
+    <!-- Mon RIB (rétracté par défaut, auto-ouvre si manquant/non validé) -->
+    <details class="block card" id="ribCard" style="display:none">
+      <summary>Mon RIB</summary>
+      <div class="inner">
+        <div id="rib_state_banner" class="banner warn" style="display:none;margin:0 0 12px 0">
+          <div class="icon">⚠️</div>
+          <div>RIB en attente de validation. Les paiements ne sont pas possibles pour le moment.</div>
+        </div>
+        <div id="rib_state_ok" class="banner ok" style="display:none;margin:0 0 12px 0">
+          <div class="icon">✅</div>
+          <div>RIB validé. Tout est bon ✔</div>
+        </div>
+
+        <div class="row">
+          <input id="rib_titulaire" type="text" placeholder="Titulaire du compte" style="min-width:260px">
+          <input id="rib_iban" type="text" placeholder="IBAN" style="min-width:260px">
+          <input id="rib_bic" type="text" placeholder="BIC (optionnel)" style="min-width:180px">
+          <input id="rib_banque" type="text" placeholder="Banque (optionnel)" style="min-width:220px">
+        </div>
+        <div class="row">
+          <input id="rib_file" type="file" accept="image/*,application/pdf">
+          <label class="muted">Justificatif RIB (PDF ou photo) — <b>obligatoire</b></label>
+        </div>
+        <div class="row" style="align-items:center">
+          <input id="rib_rgpd" type="checkbox">
+          <label for="rib_rgpd" class="muted">J’autorise Pro&Beauty à conserver ces données pour mes règlements (RGPD).</label>
+        </div>
+        <div class="row">
+          <button id="rib_save">Enregistrer / Mettre à jour mon RIB</button>
+        </div>
+        <div id="rib_msg" class="muted"></div>
+        <div class="muted" id="rib_status"></div>
       </div>
-      <div class="row">
-        <input id="rib_file" type="file" accept="image/*,application/pdf">
-        <label class="muted">Justificatif RIB (PDF ou photo) — <b>obligatoire</b></label>
-      </div>
-      <div class="row" style="align-items:center">
-        <input id="rib_rgpd" type="checkbox">
-        <label for="rib_rgpd" class="muted">J’autorise Pro&Beauty à conserver ces données pour mes règlements (RGPD).</label>
-      </div>
-      <div class="row">
-        <button id="rib_save">Enregistrer / Mettre à jour mon RIB</button>
-      </div>
-      <div id="rib_msg" class="muted"></div>
-      <div class="muted" id="rib_status"></div>
-    </div>
+    </details>
 
   </div>
 
@@ -136,9 +202,17 @@
     const loginCard = document.getElementById('loginCard');
     const dashCard = document.getElementById('dashCard');
     const commCard = document.getElementById('commCard');
+    const commDetailCard = document.getElementById('commDetailCard');
     const kidsCard = document.getElementById('kidsCard');
     const profileCard = document.getElementById('profileCard');
     const ribCard = document.getElementById('ribCard');
+
+    const payoutAlert = document.getElementById('payoutAlert');
+    const payoutOk = document.getElementById('payoutOk');
+    const sumNote = document.getElementById('sum_note');
+
+    const ribBannerWait = document.getElementById('rib_state_banner');
+    const ribBannerOk = document.getElementById('rib_state_ok');
 
     const LS_KEY = 'pnb_user_token';
 
@@ -171,7 +245,6 @@
       const params = new URLSearchParams(h);
       const t = params.get('token');
       if(!t) return;
-      // on "consomme" le hash
       history.replaceState(null, '', location.pathname);
       try{
         const r = await fetch('/api/auth/verify-link?token='+encodeURIComponent(t));
@@ -181,6 +254,8 @@
         await loadOverview();
       }catch(e){ console.error(e); alert('Erreur de connexion'); }
     }
+
+    let ribState = { exists:false, approved:false, status:'pending' };
 
     // 3) Charger le dashboard
     async function loadOverview(){
@@ -195,6 +270,7 @@
         loginCard.style.display='none';
         dashCard.style.display='block';
         commCard.style.display='block';
+        commDetailCard.style.display='block';
         kidsCard.style.display='block';
         profileCard.style.display='block';
         ribCard.style.display='block';
@@ -206,49 +282,37 @@
         qrCanvas.getContext && QRCode.toCanvas(qrCanvas, j.share_url || location.origin, { width: 160, margin: 1 });
 
         // Totaux
-        document.getElementById('sum_pending').textContent = (Number(j.totals.pending || 0).toFixed(2))+' '+(j.currency||'EUR');
-        document.getElementById('sum_approved').textContent = (Number(j.totals.approved || 0).toFixed(2))+' '+(j.currency||'EUR');
-        document.getElementById('sum_paid').textContent = (Number(j.totals.paid || 0).toFixed(2))+' '+(j.currency||'EUR');
+        const currency = j.currency || 'EUR';
+        document.getElementById('sum_pending').textContent = (Number(j.totals.pending || 0).toFixed(2))+' '+currency;
+        document.getElementById('sum_approved').textContent = (Number(j.totals.approved || 0).toFixed(2))+' '+currency;
+        document.getElementById('sum_paid').textContent = (Number(j.totals.paid || 0).toFixed(2))+' '+currency;
 
         document.getElementById('children_count').textContent = j.children.count || 0;
         document.getElementById('children_sales_count').textContent = j.children.sales_count || 0;
 
-        // Commissions
+        // Commissions (aperçu)
         const ct = document.getElementById('comm_tbody');
         ct.innerHTML = '';
-        if(!j.latest_commissions || j.latest_commissions.length===0){
+        const latest = j.latest_commissions || [];
+        if(latest.length===0){
           ct.innerHTML = '<tr><td colspan="5" class="muted">Aucune donnée.</td></tr>';
         } else {
-          for(const c of j.latest_commissions){
+          for(const c of latest){
+            const typeTxt = classifyCommission(c);
             const tr = document.createElement('tr');
             tr.innerHTML = `
               <td>${c.created_at ? new Date(c.created_at).toLocaleString() : ''}</td>
-              <td>${c.status}</td>
-              <td>${c.role}</td>
-              <td>${Number(c.amount).toFixed(2)} ${c.currency || ''}</td>
-              <td>${c.sale?.order_id || ''}</td>
+              <td>${escapeHtml(c.status || '')}</td>
+              <td>${typeTxt}</td>
+              <td>${Number(c.amount||0).toFixed(2)} ${escapeHtml(c.currency || '')}</td>
+              <td>${escapeHtml((c.sale && c.sale.order_id) || '')}</td>
             `;
             ct.appendChild(tr);
           }
         }
 
-        // Filleuls
-        const kt = document.getElementById('kids_tbody');
-        kt.innerHTML = '';
-        if(!j.children.list || j.children.list.length===0){
-          kt.innerHTML = '<tr><td colspan="4" class="muted">Aucun filleul.</td></tr>';
-        } else {
-          for(const k of j.children.list){
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-              <td>${(k.first_name||'')+' '+(k.last_name||'')}</td>
-              <td>${k.email || ''}</td>
-              <td>${k.referral_code || ''}</td>
-              <td>${k.created_at ? new Date(k.created_at).toLocaleDateString() : ''}</td>
-            `;
-            kt.appendChild(tr);
-          }
-        }
+        // Commissions détaillées
+        await loadCommissionsDetail(currency);
 
         // Pré-remplir profil
         document.getElementById('p_first').value = j.me.first_name || '';
@@ -259,6 +323,57 @@
         await loadRIB();
 
       }catch(e){ console.error(e); }
+    }
+
+    // Heuristique d'affichage : Bonus filleul (≈5€) vs Commission institut
+    function classifyCommission(c){
+      const amt = Number(c.amount || 0);
+      const role = (c.role || '').toLowerCase();
+      const labelChild = (c.kind || c.category || '').toLowerCase().includes('child') || (amt <= 5.5 && role === 'parent');
+      return labelChild ? 'Bonus filleul' : 'Commission institut';
+    }
+
+    // Échapper HTML
+    function escapeHtml(s){
+      return String(s || '').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+    }
+
+    // Charger commissions détaillées via /api/me/commissions
+    async function loadCommissionsDetail(currency){
+      const tbody = document.getElementById('comm_detail_tbody');
+      tbody.innerHTML = '<tr><td colspan="8" class="muted">Chargement…</td></tr>';
+      try{
+        const r = await fetch('/api/me/commissions', { headers: authHeaders() });
+        const j = await r.json();
+        if(!r.ok){ tbody.innerHTML = `<tr><td colspan="8" class="muted">${escapeHtml(j.error||'Erreur')}</td></tr>`; return; }
+
+        const list = j.items || j.data || [];
+        if(list.length === 0){
+          tbody.innerHTML = '<tr><td colspan="8" class="muted">Aucune commission.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = '';
+        for(const c of list){
+          const typeTxt = classifyCommission(c);
+          const sale = c.sale || {};
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${c.created_at ? new Date(c.created_at).toLocaleString() : ''}</td>
+            <td>${escapeHtml(c.status || '')}</td>
+            <td><span class="tag">${typeTxt}</span></td>
+            <td class="right"><b>${Number(c.amount||0).toFixed(2)} ${escapeHtml(c.currency || currency || '')}</b></td>
+            <td>${escapeHtml(sale.order_id || c.order_id || '')}</td>
+            <td>${escapeHtml(sale.institute_name || sale.account_name || '-')}</td>
+            <td>${escapeHtml(sale.pro_name || sale.contact_name || '-')}</td>
+            <td>${escapeHtml(sale.postal_code || sale.zip || '-')}</td>
+          `;
+          tbody.appendChild(tr);
+        }
+      }catch(e){
+        console.error(e);
+        tbody.innerHTML = '<tr><td colspan="8" class="muted">Erreur de chargement.</td></tr>';
+      }
     }
 
     // 4) Sauvegarde profil
@@ -310,17 +425,57 @@
         const j = await r.json();
         if(!r.ok){ msg.textContent = j.error || 'Erreur'; return; }
         msg.textContent = '';
+
         if(j.rib){
           document.getElementById('rib_titulaire').value = j.rib.titulaire || '';
           document.getElementById('rib_iban').value      = j.rib.iban || '';
           document.getElementById('rib_bic').value       = j.rib.bic || '';
           document.getElementById('rib_banque').value    = j.rib.banque || '';
           document.getElementById('rib_rgpd').checked    = !!j.rib.rgpd_consent;
-          st.textContent = 'Statut vérification : ' + (j.rib.status || 'pending');
+
+          const status = (j.rib.status || 'pending').toLowerCase(); // 'pending' | 'approved' | 'rejected'
+          st.textContent = 'Statut vérification : ' + status;
+
+          ribState.exists = true;
+          ribState.approved = status === 'approved';
+          ribState.status = status;
+
         } else {
           st.textContent = 'Aucun RIB enregistré.';
+          ribState.exists = false;
+          ribState.approved = false;
+          ribState.status = 'missing';
         }
-      }catch(e){ console.error(e); msg.textContent='Erreur de chargement'; }
+
+        reflectRibStateUI();
+
+      }catch(e){
+        console.error(e);
+        msg.textContent='Erreur de chargement';
+      }
+    }
+
+    // Appliquer l’état RIB aux bannières & accordéons
+    function reflectRibStateUI(){
+      // Bannières globales
+      if(ribState.approved){
+        payoutAlert.style.display = 'none';
+        payoutOk.style.display = 'flex';
+        sumNote.style.display = 'none';
+      }else{
+        payoutAlert.style.display = 'flex';
+        payoutOk.style.display = 'none';
+        sumNote.style.display = 'block';
+      }
+
+      // Accordéon RIB :
+      // - OUVERT si RIB manquant OU non validé
+      // - FERMÉ si validé
+      ribCard.open = (!ribState.exists) || (!ribState.approved);
+
+      // Bannières internes au bloc RIB
+      ribBannerOk.style.display = ribState.approved ? 'flex' : 'none';
+      ribBannerWait.style.display = (!ribState.approved) ? 'flex' : 'none';
     }
 
     // Sauvegarde RIB
@@ -338,13 +493,12 @@
         if(!rgpd){ msg.textContent='Cochez la case RGPD.'; return; }
         if(!titulaire || !iban){ msg.textContent='Titulaire et IBAN requis.'; return; }
 
-        // Fichier justificatif (obligatoire la première fois)
+        // Fichier justificatif (obligatoire si jamais aucun justificatif connu)
         const fileInput = document.getElementById('rib_file');
         let justificatif_path = null;
 
         if(fileInput.files && fileInput.files[0]){
           const f = fileInput.files[0];
-          // envoie du fichier vers /api/me/upload-rib
           const base64 = await fileToBase64(f);
           const up = await fetch('/api/me/upload-rib', {
             method:'POST',
@@ -364,15 +518,15 @@
         const j = await r.json();
         if(!r.ok){ msg.textContent = j.error || 'Erreur'; return; }
 
-        msg.textContent = 'RIB enregistré ✔';
+        msg.textContent = 'RIB enregistré ✔ (validation en cours si nouveau/maj)';
         await loadRIB();
       }catch(e){ console.error(e); msg.textContent='Erreur réseau'; }
     };
 
     // Auto: si on a un token stocké → affiche directement le dashboard
     document.addEventListener('DOMContentLoaded', async ()=>{
-      await checkHashLogin();          // si on arrive via le mail (hash #token)
-      if (getToken()) await loadOverview(); // si déjà connecté
+      await checkHashLogin();
+      if (getToken()) await loadOverview();
     });
   </script>
 </body>
