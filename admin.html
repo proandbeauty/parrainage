@@ -23,7 +23,7 @@
     .btn-ghost{background:#0f141c;border:1px solid var(--stroke);color:#eaf2fb}
     .btn-red{background:var(--red);color:#1b0b0b}
     .btn-red:hover{filter:brightness(1.05)}
-    .btn-done{background:#0f141c;border:1px solid var(--divider);color:var(--muted);cursor:default}
+    .btn-done{background:#0f141c;border:1px solid var(--divider);color:#9fb0c3;cursor:default}
     .btn-done:hover{background:#0f141c}
 
     table{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px}
@@ -36,7 +36,7 @@
     .pill.bad{border-color:rgba(255,107,107,.6);color:#ffb3b3}
 
     .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-    .tab{background:#0f141c;border:1px solid var(--stroke);color:var(--text);padding:8px 12px;border-radius:10px;cursor:pointer}
+    .tab{background:#0f141c;border:1px solid var(--stroke);color:#eaf2fb;padding:8px 12px;border-radius:10px;cursor:pointer}
     .tab.active{background:var(--accent);color:#06281c;border-color:transparent;font-weight:800}
     .hide{display:none !important}
 
@@ -49,7 +49,7 @@
     /* Toast */
     .toastbox{position:fixed;top:16px;right:16px;display:flex;flex-direction:column;gap:8px;z-index:9999}
     .toast{
-      background:#0f141c;border:1px solid var(--divider);color:var(--text);
+      background:#0f141c;border:1px solid var(--divider);color:#eaf2fb;
       padding:10px 12px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.35);
       display:flex;align-items:center;gap:8px;min-width:220px
     }
@@ -66,6 +66,11 @@
     .modal h3{margin:0 0 10px}
     .modal .row{margin-bottom:8px}
     .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+
+    /* Erreurs de formulaire */
+    .field{display:flex;flex-direction:column;gap:6px;min-width:260px}
+    .error{color:#ffb3b3;font-size:12px;min-height:16px}
+    .invalid{border-color:#ff6b6b}
   </style>
 </head>
 <body>
@@ -216,12 +221,31 @@
       <h3>Modifier le bénéficiaire</h3>
       <form id="form-edit-ref">
         <input type="hidden" name="id" />
-        <div class="row"><input name="first_name" placeholder="Prénom" required /></div>
-        <div class="row"><input name="last_name" placeholder="Nom" required /></div>
-        <div class="row"><input name="email" type="email" placeholder="Email" required /></div>
-        <div class="row"><input name="phone" placeholder="Téléphone" /></div>
-        <div class="row"><input name="brand" placeholder="Marque" /></div>
-        <div class="row"><input name="code" placeholder="Code parrain" /></div>
+        <div class="row field">
+          <input name="first_name" placeholder="Prénom" required />
+          <small class="error" data-err="first_name"></small>
+        </div>
+        <div class="row field">
+          <input name="last_name" placeholder="Nom" required />
+          <small class="error" data-err="last_name"></small>
+        </div>
+        <div class="row field">
+          <input name="email" type="email" placeholder="Email" required />
+          <small class="error" data-err="email"></small>
+        </div>
+        <div class="row field">
+          <input name="phone" placeholder="Téléphone" />
+          <small class="error" data-err="phone"></small>
+        </div>
+        <div class="row field">
+          <input name="brand" placeholder="Marque" />
+          <small class="error" data-err="brand"></small>
+        </div>
+        <!-- Code parrain: lecture seule (non modifiable) -->
+        <div class="row field">
+          <input name="code" placeholder="Code parrain" readonly />
+          <small class="error" data-err="code"></small>
+        </div>
         <div class="actions">
           <button type="button" class="btn-ghost" data-close="#modal-edit-ref">Annuler</button>
           <button class="btn-ghost">Enregistrer</button>
@@ -236,29 +260,41 @@
     <div class="panel">
       <h3>Ajouter une vente / client</h3>
       <form id="form-add-sale" novalidate>
-        <div class="row"><input name="order_id" placeholder="N° commande (optionnel)" /></div>
-        <div class="row"><input name="institute_name" placeholder="Nom de l'institut" required /></div>
-        <div class="row"><input name="pro_name" placeholder="Professionnel" required /></div>
-        <!-- CP: exactement 5 chiffres -->
-        <div class="row">
-          <input name="postal_code" placeholder="Code postal (5 chiffres)" inputmode="numeric" pattern="^\\d{5}$" maxlength="5" required />
+        <div class="row field">
+          <input name="order_id" placeholder="N° commande (optionnel)" />
+          <small class="error" data-err="order_id"></small>
         </div>
-        <!-- Montant: suggestions via datalist + contrôle JS -->
-        <div class="row">
+        <div class="row field">
+          <input name="institute_name" placeholder="Nom de l'institut" required />
+          <small class="error" data-err="institute_name"></small>
+        </div>
+        <div class="row field">
+          <input name="pro_name" placeholder="Professionnel" required />
+          <small class="error" data-err="pro_name"></small>
+        </div>
+        <div class="row field">
+          <input name="postal_code" placeholder="Code postal (5 chiffres)" inputmode="numeric" maxlength="5" required />
+          <small class="error" data-err="postal_code"></small>
+        </div>
+        <div class="row field">
           <input name="amount" type="number" step="0.01" min="0.01" placeholder="Montant" list="amounts_list" required />
           <datalist id="amounts_list"></datalist>
+          <small class="error" data-err="amount"></small>
         </div>
-        <!-- Devise et Date retirées (gérées côté serveur) -->
-        <div class="row"><input name="referral_code" placeholder="Code parrain" required /></div>
+        <div class="row field">
+          <input name="referral_code" placeholder="Code parrain" required />
+          <small class="error" data-err="referral_code"></small>
+        </div>
         <div class="actions">
           <button type="button" class="btn-ghost" data-close="#modal-add-sale">Annuler</button>
           <button class="btn-ghost">Créer</button>
         </div>
+        <div class="error" data-err="form"></div>
       </form>
     </div>
   </div>
 
-  <!-- ================== SCRIPT (placé APRÈS le HTML, important) ================== -->
+  <!-- ================== SCRIPT ================== -->
   <script>
     // --------- Helpers ----------
     const $ = q => document.querySelector(q);
@@ -273,6 +309,16 @@
       setTimeout(()=>{ div.style.opacity=0; div.style.transform='translateY(-6px)'; }, 2200);
       setTimeout(()=>{ div.remove(); }, 2600);
     }
+    function todayStr(){ return new Date().toISOString().slice(0,10); }
+    function token(){ return ($('#adm_token').value || '').trim(); }
+    function auth(){ return { Authorization: 'Bearer '+token() }; }
+    function setPill(el, status){
+      el.textContent = status;
+      el.classList.remove('ok','warn','bad');
+      if (status==='approved' || status==='paid' || status==='validé') el.classList.add('ok');
+      else if (status==='pending' || status==='en attente') el.classList.add('warn');
+      else if (status==='rejected') el.classList.add('bad');
+    }
     async function downloadCsvFrom(url, filename) {
       try{
         const res = await fetch(url, { headers: auth() });
@@ -281,24 +327,29 @@
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        URL.revokeObjectURL(a.href);
-        a.remove();
+        document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
       }catch(_){ showToast('Export impossible', false); }
     }
-    function todayStr(){ return new Date().toISOString().slice(0,10); }
-    function setPill(el, status){
-      el.textContent = status;
-      el.classList.remove('ok','warn','bad');
-      if (status==='approved' || status==='paid' || status==='validé') el.classList.add('ok');
-      else if (status==='pending' || status==='en attente') el.classList.add('warn');
-      else if (status==='rejected') el.classList.add('bad');
-    }
-    function token(){ return (document.getElementById('adm_token').value || '').trim(); }
-    function auth(){ return { Authorization: 'Bearer '+token() }; }
 
-    // --------- Modales (ouvre/ferme + Échap) ----------
+    // Helpers erreurs champ
+    function setFieldError(input, msg){
+      if(!input) return;
+      input.classList.add('invalid');
+      const holder = input.closest('.field')?.querySelector('.error');
+      if(holder) holder.textContent = msg || '';
+    }
+    function clearFieldError(input){
+      if(!input) return;
+      input.classList.remove('invalid');
+      const holder = input.closest('.field')?.querySelector('.error');
+      if(holder) holder.textContent = '';
+    }
+    function clearFormErrors(form){
+      form.querySelectorAll('.invalid').forEach(el=> el.classList.remove('invalid'));
+      form.querySelectorAll('.error').forEach(el=> el.textContent='');
+    }
+
+    // --------- Modales ----------
     function openModal(sel){ const m=document.querySelector(sel); if(m){ m.classList.add('show'); } }
     function closeModal(sel){ const m=document.querySelector(sel); if(m){ m.classList.remove('show'); } }
     document.addEventListener('click',(e)=>{
@@ -467,7 +518,7 @@
     commMoreBtn.addEventListener('click', ()=>{ if(commHasMore) loadCommissions(false); });
 
     // Export Commissions
-    commExportBtn.addEventListener('click', async ()=>{
+    document.getElementById('comm_export').addEventListener('click', async ()=>{
       try{
         const p = {
           search: admSearchEl.value.trim(),
@@ -485,6 +536,7 @@
         }
       } catch (_) {}
 
+      // Fallback local
       try {
         const rows = await fetchAllCommissionsForExport();
         if (!rows.length) { showToast('Aucune commission à exporter', false); return; }
@@ -730,66 +782,113 @@
     });
 
     // Ouvrir la modale d'ajout de vente
-    document.getElementById('sales_add')?.addEventListener('click', ()=> openModal('#modal-add-sale'));
+    document.getElementById('sales_add')?.addEventListener('click', async ()=>{
+      openModal('#modal-add-sale');
+      await loadPriceList(); // recharge la liste au moment d’ouvrir
+    });
 
     // Charger la liste des montants autorisés (optionnel)
     async function loadPriceList(){
       try{
         const r = await fetch('/api/admin/price-list', { headers: auth() });
-        if(!r.ok) return;
+        if(!r.ok) { allowedAmounts=null; return; }
         const j = await r.json();
         const list = Array.isArray(j?.amounts) ? j.amounts : [];
+        const dl = document.getElementById('amounts_list');
+        dl.innerHTML = '';
         if(list.length){
           allowedAmounts = new Set(list.map(v=> Number(v)));
-          const dl = document.getElementById('amounts_list');
-          dl.innerHTML = '';
           list.forEach(v=>{
             const opt=document.createElement('option');
             opt.value = String(v);
             dl.appendChild(opt);
           });
+        }else{
+          allowedAmounts=null;
+          showToast('Aucune liste de montants trouvée', false);
         }
-      }catch(_){}
+      }catch(_){
+        allowedAmounts=null;
+        showToast('Impossible de charger la liste des montants', false);
+      }
     }
 
-    // Soumission création de vente (avec validations strictes)
+    // Masque visuel du CP (empêche lettres) + nettoyage
+    const cpInput = document.querySelector('#form-add-sale input[name="postal_code"]');
+    cpInput?.addEventListener('input', ()=>{
+      const v = cpInput.value.replace(/\D+/g,'').slice(0,5);
+      cpInput.value = v;
+      clearFieldError(cpInput);
+    });
+
+    // Soumission création de vente (avec validations et erreurs visibles)
     document.getElementById('form-add-sale')?.addEventListener('submit', async (e)=>{
       e.preventDefault();
       const f = e.currentTarget;
+      clearFormErrors(f);
 
-      // Validations côté client
+      const order_id = f.order_id.value.trim() || null;
+      const institute = f.institute_name.value.trim();
+      const pro = f.pro_name.value.trim();
       const postal = f.postal_code.value.trim();
       const amount = Number(f.amount.value);
       const referral = f.referral_code.value.trim();
-      if(!/^\d{5}$/.test(postal)){ showToast('Code postal invalide (5 chiffres)', false); f.postal_code.focus(); return; }
-      if(!(amount>0)){ showToast('Montant invalide', false); f.amount.focus(); return; }
-      if(allowedAmounts && !allowedAmounts.has(Number(f.amount.value))){ showToast('Montant non autorisé (sélectionne une valeur proposée)', false); f.amount.focus(); return; }
-      if(!referral){ showToast('Code parrain requis', false); f.referral_code.focus(); return; }
+
+      let hasErr=false;
+      if(!institute){ setFieldError(f.institute_name,'Nom de l’institut requis'); hasErr=true; }
+      if(!pro){ setFieldError(f.pro_name,'Nom du professionnel requis'); hasErr=true; }
+      if(!/^\d{5}$/.test(postal)){ setFieldError(f.postal_code,'Code postal invalide (5 chiffres)'); hasErr=true; }
+      if(!(amount>0)){ setFieldError(f.amount,'Montant invalide (> 0)'); hasErr=true; }
+      if(allowedAmounts && !allowedAmounts.has(Number(f.amount.value))){
+        setFieldError(f.amount,'Montant non autorisé — choisis une valeur proposée'); hasErr=true;
+      }
+      if(!referral){ setFieldError(f.referral_code,'Code parrain requis'); hasErr=true; }
+
+      if(hasErr){ setFieldError(f.querySelector('[data-err="form"]'), 'Merci de corriger les erreurs ci-dessus.'); return; }
 
       const payload = {
-        order_id: f.order_id.value.trim() || null,
-        institute_name: f.institute_name.value.trim(),
-        pro_name: f.pro_name.value.trim(),
+        order_id,
+        institute_name: institute,
+        pro_name: pro,
         postal_code: postal,
         amount: amount,
-        currency: 'EUR',            // forcé côté client, mais normalement ignoré côté API
+        currency: 'EUR',
         referral_code: referral
-        // created_at: géré côté serveur
       };
 
-      const r = await fetch('/api/admin/create-sale', {
-        method:'POST', headers:{'Content-Type':'application/json', ...auth()}, body:JSON.stringify(payload)
-      });
-      const j = await r.json().catch(()=>({}));
-      if(!r.ok){ showToast(j.error||'Création impossible', false); return; }
+      const submitBtn = f.querySelector('button[type="submit"]');
+      submitBtn.disabled = true; submitBtn.style.opacity=.7;
 
-      closeModal('#modal-add-sale');
-      f.reset();
-      showToast('Vente créée ✅', true);
+      try{
+        const r = await fetch('/api/admin/create-sale', {
+          method:'POST', headers:{'Content-Type':'application/json', ...auth()}, body:JSON.stringify(payload)
+        });
+        const raw = await r.text();
+        let j = {};
+        try{ j = raw ? JSON.parse(raw) : {}; }catch{ j = { error: raw || '' }; }
 
-      // Rafraîchir ventes + commissions (si le total dépend des commissions)
-      loadSales(true);
-      loadCommissions(true);
+        if(!r.ok){
+          const msg = j.error || `Création impossible (HTTP ${r.status})`;
+          setFieldError(f.querySelector('[data-err="form"]'), msg);
+          showToast('Création impossible', false);
+          submitBtn.disabled=false; submitBtn.style.opacity=1;
+          return;
+        }
+
+        closeModal('#modal-add-sale');
+        f.reset();
+        showToast('Vente créée ✅', true);
+
+        // Rafraîchir ventes + commissions
+        loadSales(true);
+        loadCommissions(true);
+      }catch(err){
+        console.error(err);
+        setFieldError(f.querySelector('[data-err="form"]'), 'Erreur réseau, réessaie.');
+        showToast('Création impossible', false);
+      }finally{
+        submitBtn.disabled=false; submitBtn.style.opacity=1;
+      }
     });
 
     // ===================== BENEFICIAIRES =====================
@@ -932,40 +1031,57 @@
       }
     });
 
-    // Submit édition bénéficiaire
+    // Submit édition bénéficiaire (code parrain NON envoyé)
     document.getElementById('form-edit-ref')?.addEventListener('submit', async (e)=>{
       e.preventDefault();
       const f = e.currentTarget;
+      clearFormErrors(f);
+
       const payload = {
         id: f.id.value,
         first_name: f.first_name.value.trim(),
         last_name: f.last_name.value.trim(),
         email: f.email.value.trim(),
         phone: f.phone.value.trim(),
-        brand: f.brand.value.trim(),
-        code: f.code.value.trim()
+        brand: f.brand.value.trim()
+        // code volontairement non envoyé (lecture seule)
       };
-      const r = await fetch('/api/admin/referrers-update', {
-        method:'POST', headers:{'Content-Type':'application/json', ...auth()}, body:JSON.stringify(payload)
-      });
-      const j = await r.json().catch(()=>({}));
-      if(!r.ok){ showToast(j.error||'Mise à jour impossible', false); return; }
-      closeModal('#modal-edit-ref');
-      showToast('Bénéficiaire mis à jour', true);
-      loadReferrers(true);
+
+      const submitBtn = f.querySelector('button[type="submit"]');
+      submitBtn.disabled = true; submitBtn.style.opacity=.7;
+
+      try{
+        const r = await fetch('/api/admin/referrers-update', {
+          method:'POST', headers:{'Content-Type':'application/json', ...auth()}, body:JSON.stringify(payload)
+        });
+        const raw = await r.text(); let j={}; try{ j = raw?JSON.parse(raw):{} }catch{ j={ error: raw||'' } };
+        if(!r.ok){
+          const msg = j.error || `Mise à jour impossible (HTTP ${r.status})`;
+          setFieldError(f.querySelector('[data-err="first_name"]'), msg);
+          showToast('Mise à jour impossible', false);
+          submitBtn.disabled=false; submitBtn.style.opacity=1;
+          return;
+        }
+        closeModal('#modal-edit-ref');
+        showToast('Bénéficiaire mis à jour', true);
+        loadReferrers(true);
+      }catch(err){
+        console.error(err);
+        setFieldError(f.querySelector('[data-err="first_name"]'), 'Erreur réseau, réessaie.');
+        showToast('Mise à jour impossible', false);
+      }finally{
+        submitBtn.disabled=false; submitBtn.style.opacity=1;
+      }
     });
 
-    // ====== Charge tout au démarrage + prix ======
+    // ====== Charge tout au démarrage ======
     function loadAll(reset){
       loadCommissions(reset);
       loadRibs(reset);
       loadSales(reset);
       loadReferrers(reset);
     }
-    document.addEventListener('DOMContentLoaded', ()=>{
-      // (Le script est déjà après le HTML, mais on garde la logique)
-    });
-    if(token()){ loadAll(true); loadPriceList(); }
+    if(token()){ loadAll(true); }
   </script>
 </body>
 </html>
