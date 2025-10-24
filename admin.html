@@ -39,7 +39,7 @@
     .tab.active{background:var(--accent);color:#06281c;border-color:transparent;font-weight:800}
     .hide{display:none !important}
 
-    /* Ligne flash (succès / rejet) */
+    /* Ligne flash */
     tr.flash-ok{animation: flashok 1.4s ease-out}
     tr.flash-bad{animation: flashbad 1.4s ease-out}
     @keyframes flashok { 0%{background:rgba(56,211,159,.25)} 100%{background:transparent} }
@@ -56,16 +56,15 @@
     .toast.bad .dot{width:10px;height:10px;border-radius:50%;background:var(--red)}
     .toast .label{font-weight:700}
 
-    /* --- Modal simple --- */
-.modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:10000}
-.modal.show{display:flex}
-.modal .scrim{position:absolute;inset:0;background:rgba(0,0,0,.55)}
-.modal .panel{position:relative;background:var(--card);border:1px solid var(--divider);border-radius:14px;padding:16px;min-width:320px;max-width:92vw}
-.modal h3{margin:0 0 10px}
-.modal .row{margin-bottom:8px}
-.modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
-.modal .danger{background:var(--red);color:#1b0b0b}
-
+    /* --- Modales --- */
+    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:10000}
+    .modal.show{display:flex}
+    .modal .scrim{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+    .modal .panel{position:relative;background:var(--card);border:1px solid var(--divider);border-radius:14px;padding:16px;min-width:320px;max-width:92vw}
+    .modal h3{margin:0 0 10px}
+    .modal .row{margin-bottom:8px}
+    .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+    .modal .danger{background:var(--red);color:#1b0b0b}
   </style>
 </head>
 <body>
@@ -99,7 +98,6 @@
             <option value="paid">Payé</option>
           </select>
           <button id="comm_export" class="btn-ghost">Exporter CSV</button>
-          <button id="sales_add" class="btn-ghost">Ajouter une vente</button>
           <div class="muted" id="comm_hint"></div>
         </div>
         <table>
@@ -156,6 +154,7 @@
           <input id="sales_amt_min" type="number" step="0.01" placeholder="Montant min" style="min-width:140px" />
           <input id="sales_amt_max" type="number" step="0.01" placeholder="Montant max" style="min-width:140px" />
           <button id="sales_export" class="btn-ghost">Exporter CSV</button>
+          <button id="sales_add" class="btn-ghost">Ajouter une vente</button>
         </div>
         <table>
           <thead>
@@ -226,7 +225,7 @@
       setTimeout(()=>{ div.remove(); }, 2600);
     }
 
-    // ---- Utils pour téléchargement CSV sécurisé + petit helper date ----
+    // ---- Utils téléchargement CSV + date ----
     async function downloadCsvFrom(url, filename) {
       try{
         const res = await fetch(url, { headers: auth() });
@@ -244,12 +243,12 @@
     function todayStr(){ return new Date().toISOString().slice(0,10); }
 
     function setPill(el, status){
-  el.textContent = status;
-  el.classList.remove('ok','warn','bad');
-  if (status==='approved' || status==='paid' || status==='validé') el.classList.add('ok');
-  else if (status==='pending' || status==='en attente') el.classList.add('warn');
-  else if (status==='rejected') el.classList.add('bad');
-}
+      el.textContent = status;
+      el.classList.remove('ok','warn','bad');
+      if (status==='approved' || status==='paid' || status==='validé') el.classList.add('ok');
+      else if (status==='pending' || status==='en attente') el.classList.add('warn');
+      else if (status==='rejected') el.classList.add('bad');
+    }
 
     const admTokenEl = $('#adm_token');
     const admSearchEl = $('#adm_search');
@@ -408,100 +407,99 @@
     });
 
     commMoreBtn.addEventListener('click', ()=>{ if(commHasMore) loadCommissions(false); });
-// Export Commissions : essaye l'API CSV, sinon fallback local (pagination list-commissions)
-commExportBtn.addEventListener('click', async ()=>{
-  try{
-    const p = {
-      search: admSearchEl.value.trim(),
-      ...(commStatusEl.value!=='all' ? { status: commStatusEl.value } : {})
-    };
-    const url = `/api/admin/export-commissions?${new URLSearchParams(p).toString()}`;
-    const res = await fetch(url, { headers: auth() });
-    if (res.ok) {
-      const csv = '\uFEFF' + lines.join('\r\n');
-      const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `export-commissions-${todayStr()}.csv`;
-      document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
-      return;
+
+    // Export Commissions : essaye l'API CSV, sinon fallback local
+    commExportBtn.addEventListener('click', async ()=>{
+      try{
+        const p = {
+          search: admSearchEl.value.trim(),
+          ...(commStatusEl.value!=='all' ? { status: commStatusEl.value } : {})
+        };
+        const url = `/api/admin/export-commissions?${new URLSearchParams(p).toString()}`;
+        const res = await fetch(url, { headers: auth() });
+        if (res.ok) {
+          const blob = await res.blob();
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `export-commissions-${todayStr()}.csv`;
+          document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
+          return;
+        }
+      } catch (_) { /* fallback */ }
+
+      try {
+        const rows = await fetchAllCommissionsForExport();
+        if (!rows.length) { showToast('Aucune commission à exporter', false); return; }
+
+        const head = [
+          'date','commission_id','status','role','amount','currency',
+          'beneficiary_name','beneficiary_email','referral_code',
+          'order_id','sale_amount','sale_currency','sale_date'
+        ];
+        const lines = [head.join(';')];
+
+        for (const c of rows) {
+          const b = c.beneficiary || {};
+          const s = c.sale || {};
+          const vals = [
+            c.created_at ? new Date(c.created_at).toLocaleString() : '',
+            c.id || '', c.status || '', c.role || '',
+            (c.amount!=null ? Number(c.amount).toFixed(2) : ''), (c.currency || ''),
+            `${(b.first_name||'')+' '+(b.last_name||'')}`.trim(), (b.email||''), (b.referral_code||''),
+            (s.order_id||''), (s.amount!=null ? Number(s.amount).toFixed(2) : ''), (s.currency||''),
+            s.created_at ? new Date(s.created_at).toLocaleString() : ''
+          ].map(x => `"${String(x).replace(/"/g,'""')}"`);
+          lines.push(vals.join(';'));
+        }
+
+        const csv = '\uFEFF' + lines.join('\r\n');
+        const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `export-commissions-${todayStr()}.csv`;
+        document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
+      } catch (e) {
+        console.error(e);
+        showToast('Export impossible', false);
+      }
+    });
+
+    // Paginate commissions pour fallback local
+    async function fetchAllCommissionsForExport() {
+      const out = [];
+      // 1) page/limit
+      let page = 1, limit = 200, keep = true;
+      while (keep && page <= 500) {
+        const p = { search: admSearchEl.value.trim(), page: String(page), limit: String(limit) };
+        if (commStatusEl.value !== 'all') p.status = commStatusEl.value;
+        const url = `/api/admin/list-commissions?${new URLSearchParams(p).toString()}`;
+        const r = await fetch(url, { headers: auth() });
+        if (r.status === 400 || r.status === 404 || r.status === 422) { keep = false; break; }
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || 'Erreur liste commissions');
+        const batch = Array.isArray(j.items) ? j.items : (Array.isArray(j.rows) ? j.rows : []);
+        out.push(...batch.map(commNormalize));
+        if (j.hasMore === false || batch.length < limit) break;
+        page++;
+      }
+      if (out.length) return out;
+
+      // 2) offset/limit
+      let offset = 0; keep = true;
+      while (keep && offset <= 20000) {
+        const p = { search: admSearchEl.value.trim(), offset: String(offset), limit: '500' };
+        if (commStatusEl.value !== 'all') p.status = commStatusEl.value;
+        const url = `/api/admin/list-commissions?${new URLSearchParams(p).toString()}`;
+        const r = await fetch(url, { headers: auth() });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || 'Erreur liste commissions (offset)');
+        const batch = Array.isArray(j.items) ? j.items : (Array.isArray(j.rows) ? j.rows : []);
+        out.push(...batch.map(commNormalize));
+        if (!batch.length) break;
+        offset = j.nextOffset != null ? j.nextOffset : (offset + batch.length);
+      }
+      return out;
     }
-  } catch (_) { /* on tentera le fallback */ }
-
-  // Fallback local
-  try {
-    const rows = await fetchAllCommissionsForExport();
-    if (!rows.length) { showToast('Aucune commission à exporter', false); return; }
-
-    const head = [
-      'date','commission_id','status','role','amount','currency',
-      'beneficiary_name','beneficiary_email','referral_code',
-      'order_id','sale_amount','sale_currency','sale_date'
-    ];
-    const lines = [head.join(';')];
-
-    for (const c of rows) {
-      const b = c.beneficiary || {};
-      const s = c.sale || {};
-      const vals = [
-        c.created_at ? new Date(c.created_at).toLocaleString() : '',
-        c.id || '', c.status || '', c.role || '',
-        (c.amount!=null ? Number(c.amount).toFixed(2) : ''), (c.currency || ''),
-        `${(b.first_name||'')+' '+(b.last_name||'')}`.trim(), (b.email||''), (b.referral_code||''),
-        (s.order_id||''), (s.amount!=null ? Number(s.amount).toFixed(2) : ''), (s.currency||''),
-        s.created_at ? new Date(s.created_at).toLocaleString() : ''
-      ].map(x => `"${String(x).replace(/"/g,'""')}"`);
-      lines.push(vals.join(';'));
-    }
-
-    const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `export-commissions-${todayStr()}.csv`;
-    document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
-  } catch (e) {
-    console.error(e);
-    showToast('Export impossible', false);
-  }
-});
-
-// Récupère toutes les commissions en paginant (supporte page/limit OU offset/limit)
-async function fetchAllCommissionsForExport() {
-  const out = [];
-  // 1) tentative page/limit
-  let page = 1, limit = 200, keep = true;
-  while (keep && page <= 500) { // garde-fou
-    const p = { search: admSearchEl.value.trim(), page: String(page), limit: String(limit) };
-    if (commStatusEl.value !== 'all') p.status = commStatusEl.value;
-    const url = `/api/admin/list-commissions?${new URLSearchParams(p).toString()}`;
-    const r = await fetch(url, { headers: auth() });
-    if (r.status === 400 || r.status === 404 || r.status === 422) { keep = false; break; } // on passera à offset/limit
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || 'Erreur liste commissions');
-    const batch = Array.isArray(j.items) ? j.items : (Array.isArray(j.rows) ? j.rows : []);
-    out.push(...batch.map(commNormalize));
-    if (j.hasMore === false || batch.length < limit) break;
-    page++;
-  }
-  if (out.length) return out;
-
-  // 2) fallback offset/limit
-  let offset = 0; keep = true;
-  while (keep && offset <= 20000) {
-    const p = { search: admSearchEl.value.trim(), offset: String(offset), limit: '500' };
-    if (commStatusEl.value !== 'all') p.status = commStatusEl.value;
-    const url = `/api/admin/list-commissions?${new URLSearchParams(p).toString()}`;
-    const r = await fetch(url, { headers: auth() });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || 'Erreur liste commissions (offset)');
-    const batch = Array.isArray(j.items) ? j.items : (Array.isArray(j.rows) ? j.rows : []);
-    out.push(...batch.map(commNormalize));
-    if (!batch.length) break;
-    offset = j.nextOffset != null ? j.nextOffset : (offset + batch.length);
-  }
-  return out;
-}
-
 
     // ====== RIB ======
     const ribTbody=$('#rib_tbody'), ribStatusEl=$('#rib_status'), ribMoreBtn=$('#rib_more'), ribExportBtn=$('#rib_export'), ribHint=$('#rib_hint');
@@ -692,32 +690,32 @@ async function fetchAllCommissionsForExport() {
       a.href = URL.createObjectURL(blob); a.download = `export-ventes-${todayStr()}.csv`;
       document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
     });
-// Ouvrir la modale d'ajout de vente
-document.getElementById('sales_add')?.addEventListener('click', ()=> openModal('#modal-add-sale'));
 
-// Soumission création de vente
-document.getElementById('form-add-sale').addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const f = e.currentTarget;
-  const payload = {
-    order_id: f.order_id.value.trim() || null,
-    institute_name: f.institute_name.value.trim(),
-    pro_name: f.pro_name.value.trim(),
-    postal_code: f.postal_code.value.trim(),
-    amount: Number(f.amount.value),
-    currency: f.currency.value.trim() || 'EUR',
-    referral_code: f.referral_code.value.trim(),
-    created_at: f.created_at.value ? new Date(f.created_at.value).toISOString() : null
-  };
-  const r = await fetch('/api/admin/create-sale', {
-    method:'POST', headers:{'Content-Type':'application/json', ...auth()}, body:JSON.stringify(payload)
-  });
-  const j = await r.json().catch(()=>({}));
-  if(!r.ok){ showToast(j.error||'Création impossible', false); return; }
-  closeModal('#modal-add-sale');
-  showToast('Vente créée ✅', true);
-  loadSales(true);   // rafraîchir la liste
-});
+    // Modale ajout vente
+    document.getElementById('sales_add')?.addEventListener('click', ()=> openModal('#modal-add-sale'));
+
+    document.getElementById('form-add-sale').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const f = e.currentTarget;
+      const payload = {
+        order_id: f.order_id.value.trim() || null,
+        institute_name: f.institute_name.value.trim(),
+        pro_name: f.pro_name.value.trim(),
+        postal_code: f.postal_code.value.trim(),
+        amount: Number(f.amount.value),
+        currency: f.currency.value.trim() || 'EUR',
+        referral_code: f.referral_code.value.trim(),
+        created_at: f.created_at.value ? new Date(f.created_at.value).toISOString() : null
+      };
+      const r = await fetch('/api/admin/create-sale', {
+        method:'POST', headers:{'Content-Type':'application/json', ...auth()}, body:JSON.stringify(payload)
+      });
+      const j = await r.json().catch(()=>({}));
+      if(!r.ok){ showToast(j.error||'Création impossible', false); return; }
+      closeModal('#modal-add-sale');
+      showToast('Vente créée ✅', true);
+      loadSales(true);
+    });
 
     // ====== BENEFICIAIRES ======
     const refsTbody=$('#refs_tbody');
@@ -733,7 +731,7 @@ document.getElementById('form-add-sale').addEventListener('submit', async (e)=>{
     async function loadReferrers(reset=true){
       try{
         if(!token()){ admMsg.textContent='Saisissez le token admin.'; return; }
-        if(reset){ refsOffset=0; refsRows=[]; refsTbody.innerHTML='<tr><td colspan="5" class="muted">Chargement…</td></tr>'; }
+        if(reset){ refsOffset=0; refsRows=[]; refsTbody.innerHTML='<tr><td colspan="8" class="muted">Chargement…</td></tr>'; }
 
         const qs=new URLSearchParams({
           search: refsQ.value || admSearchEl.value.trim(),
@@ -753,7 +751,7 @@ document.getElementById('form-add-sale').addEventListener('submit', async (e)=>{
         refsRows = reset ? batch : refsRows.concat(batch);
 
         if(refsRows.length===0){
-          refsTbody.innerHTML='<tr><td colspan="5" class="muted">Aucun bénéficiaire.</td></tr>';
+          refsTbody.innerHTML='<tr><td colspan="8" class="muted">Aucun bénéficiaire.</td></tr>';
         }else{
           refsTbody.innerHTML='';
           for(const x of refsRows){
@@ -774,7 +772,6 @@ document.getElementById('form-add-sale').addEventListener('submit', async (e)=>{
     <button class="btn-red" data-ref="delete" data-id="${x.id}">Supprimer</button>
     <button class="btn-ghost" data-ref="imp" data-id="${x.id}">Se connecter</button>
   </td>`;
-
             refsTbody.appendChild(tr);
           }
         }
@@ -782,199 +779,189 @@ document.getElementById('form-add-sale').addEventListener('submit', async (e)=>{
       }catch(e){ admMsg.textContent='Erreur chargement (bénéficiaires)'; console.error(e); }
     }
 
-// Export Bénéficiaires — génération locale (BOM UTF-8 + ; + CRLF)
-refsExportBtn.addEventListener('click', () => {
-  try {
-    if (!refsRows || !refsRows.length) {
-      showToast('Aucune donnée à exporter', false);
-      return;
-    }
-    
-    // En-têtes lisibles pour Excel FR
-    const head = ['Commercial', 'Email', 'Code', 'Statut RIB', 'Dernière activité'];
-    const lines = [head.join(';')];
-
-    // Lignes
-    refsRows.forEach(x => {
-      const commercial = `${(x.first_name || '')} ${(x.last_name || '')}`.trim();
-      const email      = x.email || '';
-      const code       = x.code || '';
-      const rib        = x.rib_status || 'missing';
-      const last       = x.last_activity ? new Date(x.last_activity).toLocaleString() : '';
-
-      const row = [commercial, email, code, rib, last]
-        .map(v => `"${String(v).replace(/"/g, '""')}"`)
-        .join(';');
-
-      lines.push(row);
+    // Export Bénéficiaires (local) — BOM + ; + CRLF
+    refsExportBtn.addEventListener('click', () => {
+      try {
+        if (!refsRows || !refsRows.length) {
+          showToast('Aucune donnée à exporter', false);
+          return;
+        }
+        const head = ['Commercial', 'Email', 'Code', 'Statut RIB', 'Dernière activité'];
+        const lines = [head.join(';')];
+        refsRows.forEach(x => {
+          const commercial = `${(x.first_name || '')} ${(x.last_name || '')}`.trim();
+          const email      = x.email || '';
+          const code       = x.code || '';
+          const rib        = x.rib_status || 'missing';
+          const last       = x.last_activity ? new Date(x.last_activity).toLocaleString() : '';
+          const row = [commercial, email, code, rib, last]
+            .map(v => `"${String(v).replace(/"/g, '""')}"`)
+            .join(';');
+          lines.push(row);
+        });
+        const csv  = '\uFEFF' + lines.join('\r\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `export-beneficiaires-${todayStr()}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        URL.revokeObjectURL(a.href);
+        a.remove();
+        showToast('Export bénéficiaires OK', true);
+      } catch (e) {
+        console.error(e);
+        showToast('Export bénéficiaires impossible', false);
+      }
     });
 
-    // BOM + CRLF pour forcer la bonne mise en colonnes
-    const csv  = '\uFEFF' + lines.join('\r\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `export-beneficiaires-${todayStr()}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    URL.revokeObjectURL(a.href);
-    a.remove();
-
-    showToast('Export bénéficiaires OK', true);
-  } catch (e) {
-    console.error(e);
-    showToast('Export bénéficiaires impossible', false);
-  }
-});
-
-    // ====== Charge TOUT en parallèle ======
+    // ====== Charge TOUT ======
     function loadAll(reset){
       loadCommissions(reset);
       loadRibs(reset);
       loadSales(reset);
       loadReferrers(reset);
     }
-// helpers modales
-function openModal(sel){ const m=document.querySelector(sel); if(m){ m.classList.add('show'); } }
-function closeModal(sel){ const m=document.querySelector(sel); if(m){ m.classList.remove('show'); } }
-document.addEventListener('click',(e)=>{
-  const t=e.target.closest('[data-close]'); if(!t) return;
-  e.preventDefault(); closeModal(t.getAttribute('data-close'));
-});
 
-// Clicks sur actions bénéficiaires
-refsTbody.addEventListener('click', async (e)=>{
-  const b = e.target.closest('button[data-ref]'); if(!b) return;
-  const id = b.dataset.id;
-  const type = b.dataset.ref;
-
-  if(type==='edit'){
-    // Pré-remplir modal
-    const row = refsRows.find(r=> String(r.id)===String(id));
-    const f = document.getElementById('form-edit-ref');
-    f.id.value = row?.id || '';
-    f.first_name.value = row?.first_name || '';
-    f.last_name.value = row?.last_name || '';
-    f.email.value = row?.email || '';
-    f.phone.value = row?.phone || '';
-    f.brand.value = row?.brand || '';
-    f.code.value = row?.code || '';
-    openModal('#modal-edit-ref');
-    return;
-  }
-
-  if(type==='toggle'){
-    const to = b.dataset.to; // 'suspended' | 'active'
-    b.disabled = true; b.style.opacity=.7;
-    const r = await fetch('/api/admin/referrers-set-status', {
-      method:'POST',
-      headers:{'Content-Type':'application/json', ...auth()},
-      body:JSON.stringify({ id, status: to }) // côté serveur: applique is_suspended
+    // Helpers modales
+    function openModal(sel){ const m=document.querySelector(sel); if(m){ m.classList.add('show'); } }
+    function closeModal(sel){ const m=document.querySelector(sel); if(m){ m.classList.remove('show'); } }
+    document.addEventListener('click',(e)=>{
+      const t=e.target.closest('[data-close]'); if(!t) return;
+      e.preventDefault(); closeModal(t.getAttribute('data-close'));
     });
-    const j = await r.json().catch(()=>({}));
-    b.disabled=false; b.style.opacity=1;
-    if(!r.ok){ showToast(j.error||'Action impossible', false); return; }
-    showToast(to==='suspended'?'Bénéficiaire suspendu':'Bénéficiaire réactivé', true);
-    loadReferrers(true);
-    return;
-  }
 
-  if(type==='delete'){
-    if(!confirm('Supprimer définitivement ce bénéficiaire ?')) return;
-    b.disabled = true; b.style.opacity=.7;
-    const r = await fetch('/api/admin/referrers-delete', {
-      method:'POST',
-      headers:{'Content-Type':'application/json', ...auth()},
-      body:JSON.stringify({ id })
+    // Clicks actions bénéficiaires
+    refsTbody.addEventListener('click', async (e)=>{
+      const b = e.target.closest('button[data-ref]'); if(!b) return;
+      const id = b.dataset.id;
+      const type = b.dataset.ref;
+
+      if(type==='edit'){
+        const row = refsRows.find(r=> String(r.id)===String(id));
+        const f = document.getElementById('form-edit-ref');
+        f.id.value = row?.id || '';
+        f.first_name.value = row?.first_name || '';
+        f.last_name.value = row?.last_name || '';
+        f.email.value = row?.email || '';
+        f.phone.value = row?.phone || '';
+        f.brand.value = row?.brand || '';
+        f.code.value = row?.code || '';
+        openModal('#modal-edit-ref');
+        return;
+      }
+
+      if(type==='toggle'){
+        const to = b.dataset.to; // 'suspended' | 'active'
+        b.disabled = true; b.style.opacity=.7;
+        const r = await fetch('/api/admin/referrers-set-status', {
+          method:'POST',
+          headers:{'Content-Type':'application/json', ...auth()},
+          body:JSON.stringify({ id, status: to })
+        });
+        const j = await r.json().catch(()=>({}));
+        b.disabled=false; b.style.opacity=1;
+        if(!r.ok){ showToast(j.error||'Action impossible', false); return; }
+        showToast(to==='suspended'?'Bénéficiaire suspendu':'Bénéficiaire réactivé', true);
+        loadReferrers(true);
+        return;
+      }
+
+      if(type==='delete'){
+        if(!confirm('Supprimer définitivement ce bénéficiaire ?')) return;
+        b.disabled = true; b.style.opacity=.7;
+        const r = await fetch('/api/admin/referrers-delete', {
+          method:'POST',
+          headers:{'Content-Type':'application/json', ...auth()},
+          body:JSON.stringify({ id })
+        });
+        const j = await r.json().catch(()=>({}));
+        b.disabled=false; b.style.opacity=1;
+        if(!r.ok){ showToast(j.error||'Suppression impossible', false); return; }
+        showToast('Bénéficiaire supprimé', true);
+        loadReferrers(true);
+        return;
+      }
+
+      if(type==='imp'){
+        const r = await fetch(`/api/admin/impersonate?referrer_id=${encodeURIComponent(id)}`, { headers: auth() });
+        const j = await r.json().catch(()=>({}));
+        if(!r.ok || !j.url){ showToast(j.error||'Connexion impossible', false); return; }
+        window.open(j.url, '_blank', 'noopener');
+      }
     });
-    const j = await r.json().catch(()=>({}));
-    b.disabled=false; b.style.opacity=1;
-    if(!r.ok){ showToast(j.error||'Suppression impossible', false); return; }
-    showToast('Bénéficiaire supprimé', true);
-    loadReferrers(true);
-    return;
-  }
 
-  if(type==='imp'){
-    // Impersonation: retourne une URL de login magique
-    const r = await fetch(`/api/admin/impersonate?referrer_id=${encodeURIComponent(id)}`, { headers: auth() });
-    const j = await r.json().catch(()=>({}));
-    if(!r.ok || !j.url){ showToast(j.error||'Connexion impossible', false); return; }
-    window.open(j.url, '_blank', 'noopener');
-  }
-});
+    // Submit édition bénéficiaire
+    document.getElementById('form-edit-ref').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const f = e.currentTarget;
+      const payload = {
+        id: f.id.value,
+        first_name: f.first_name.value.trim(),
+        last_name: f.last_name.value.trim(),
+        email: f.email.value.trim(),
+        phone: f.phone.value.trim(),
+        brand: f.brand.value.trim(),
+        code: f.code.value.trim()
+      };
+      const r = await fetch('/api/admin/referrers-update', {
+        method:'POST', headers:{'Content-Type':'application/json', ...auth()}, body:JSON.stringify(payload)
+      });
+      const j = await r.json().catch(()=>({}));
+      if(!r.ok){ showToast(j.error||'Mise à jour impossible', false); return; }
+      closeModal('#modal-edit-ref');
+      showToast('Bénéficiaire mis à jour', true);
+      loadReferrers(true);
+    });
 
-// Submit édition bénéficiaire
-document.getElementById('form-edit-ref').addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const f = e.currentTarget;
-  const payload = {
-    id: f.id.value,
-    first_name: f.first_name.value.trim(),
-    last_name: f.last_name.value.trim(),
-    email: f.email.value.trim(),
-    phone: f.phone.value.trim(),
-    brand: f.brand.value.trim(),
-    code: f.code.value.trim()
-  };
-  const r = await fetch('/api/admin/referrers-update', {
-    method:'POST', headers:{'Content-Type':'application/json', ...auth()}, body:JSON.stringify(payload)
-  });
-  const j = await r.json().catch(()=>({}));
-  if(!r.ok){ showToast(j.error||'Mise à jour impossible', false); return; }
-  closeModal('#modal-edit-ref');
-  showToast('Bénéficiaire mis à jour', true);
-  loadReferrers(true);
-});
-
-    // Auto au démarrage : si token présent, on charge tous les onglets
+    // Auto-load
     document.addEventListener('DOMContentLoaded', ()=>{
       if(token()) loadAll(true);
     });
   </script>
-  <!-- Modal: éditer bénéficiaire -->
-<div id="modal-edit-ref" class="modal" aria-hidden="true">
-  <div class="scrim" data-close="#modal-edit-ref"></div>
-  <div class="panel">
-    <h3>Modifier le bénéficiaire</h3>
-    <form id="form-edit-ref">
-      <input type="hidden" name="id" />
-      <div class="row"><input name="first_name" placeholder="Prénom" required /></div>
-      <div class="row"><input name="last_name" placeholder="Nom" required /></div>
-      <div class="row"><input name="email" type="email" placeholder="Email" required /></div>
-      <div class="row"><input name="phone" placeholder="Téléphone" /></div>
-      <div class="row"><input name="brand" placeholder="Marque" /></div>
-      <div class="row"><input name="code" placeholder="Code parrain" /></div>
-      <div class="actions">
-        <button type="button" class="btn-ghost" data-close="#modal-edit-ref">Annuler</button>
-        <button class="btn-ghost">Enregistrer</button>
-      </div>
-    </form>
-  </div>
-</div>
 
-<!-- Modal: ajouter une vente / client -->
-<div id="modal-add-sale" class="modal" aria-hidden="true">
-  <div class="scrim" data-close="#modal-add-sale"></div>
-  <div class="panel">
-    <h3>Ajouter une vente / client</h3>
-    <form id="form-add-sale">
-      <div class="row"><input name="order_id" placeholder="N° commande (optionnel)" /></div>
-      <div class="row"><input name="institute_name" placeholder="Nom de l'institut" required /></div>
-      <div class="row"><input name="pro_name" placeholder="Professionnel" required /></div>
-      <div class="row"><input name="postal_code" placeholder="Code postal" required /></div>
-      <div class="row"><input name="amount" type="number" step="0.01" placeholder="Montant" required /></div>
-      <div class="row"><input name="currency" value="EUR" placeholder="Devise (ex: EUR)" required /></div>
-      <div class="row"><input name="referral_code" placeholder="Code parrain" required /></div>
-      <div class="row"><input name="created_at" type="datetime-local" placeholder="Date (optionnel)" /></div>
-      <div class="actions">
-        <button type="button" class="btn-ghost" data-close="#modal-add-sale">Annuler</button>
-        <button class="btn-ghost">Créer</button>
-      </div>
-    </form>
+  <!-- Modal: éditer bénéficiaire -->
+  <div id="modal-edit-ref" class="modal" aria-hidden="true">
+    <div class="scrim" data-close="#modal-edit-ref"></div>
+    <div class="panel">
+      <h3>Modifier le bénéficiaire</h3>
+      <form id="form-edit-ref">
+        <input type="hidden" name="id" />
+        <div class="row"><input name="first_name" placeholder="Prénom" required /></div>
+        <div class="row"><input name="last_name" placeholder="Nom" required /></div>
+        <div class="row"><input name="email" type="email" placeholder="Email" required /></div>
+        <div class="row"><input name="phone" placeholder="Téléphone" /></div>
+        <div class="row"><input name="brand" placeholder="Marque" /></div>
+        <div class="row"><input name="code" placeholder="Code parrain" /></div>
+        <div class="actions">
+          <button type="button" class="btn-ghost" data-close="#modal-edit-ref">Annuler</button>
+          <button class="btn-ghost">Enregistrer</button>
+        </div>
+      </form>
+    </div>
   </div>
-</div>
+
+  <!-- Modal: ajouter une vente / client -->
+  <div id="modal-add-sale" class="modal" aria-hidden="true">
+    <div class="scrim" data-close="#modal-add-sale"></div>
+    <div class="panel">
+      <h3>Ajouter une vente / client</h3>
+      <form id="form-add-sale">
+        <div class="row"><input name="order_id" placeholder="N° commande (optionnel)" /></div>
+        <div class="row"><input name="institute_name" placeholder="Nom de l'institut" required /></div>
+        <div class="row"><input name="pro_name" placeholder="Professionnel" required /></div>
+        <div class="row"><input name="postal_code" placeholder="Code postal" required /></div>
+        <div class="row"><input name="amount" type="number" step="0.01" placeholder="Montant" required /></div>
+        <div class="row"><input name="currency" value="EUR" placeholder="Devise (ex: EUR)" required /></div>
+        <div class="row"><input name="referral_code" placeholder="Code parrain" required /></div>
+        <div class="row"><input name="created_at" type="datetime-local" placeholder="Date (optionnel)" /></div>
+        <div class="actions">
+          <button type="button" class="btn-ghost" data-close="#modal-add-sale">Annuler</button>
+          <button class="btn-ghost">Créer</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
 </body>
 </html>
