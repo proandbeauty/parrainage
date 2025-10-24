@@ -229,12 +229,12 @@
     function todayStr(){ return new Date().toISOString().slice(0,10); }
 
     function setPill(el, status){
-      el.textContent = status;
-      el.classList.remove('ok','warn','bad');
-      if (status==='approved' || status==='paid' || status==='validé' || status==='approved') el.classList.add('ok');
-      else if (status==='pending' || status==='en attente') el.classList.add('warn');
-      else if (status==='rejected') el.classList.add('bad');
-    }
+  el.textContent = status;
+  el.classList.remove('ok','warn','bad');
+  if (status==='approved' || status==='paid' || status==='validé') el.classList.add('ok');
+  else if (status==='pending' || status==='en attente') el.classList.add('warn');
+  else if (status==='rejected') el.classList.add('bad');
+}
 
     const admTokenEl = $('#adm_token');
     const admSearchEl = $('#adm_search');
@@ -403,7 +403,8 @@ commExportBtn.addEventListener('click', async ()=>{
     const url = `/api/admin/export-commissions?${new URLSearchParams(p).toString()}`;
     const res = await fetch(url, { headers: auth() });
     if (res.ok) {
-      const blob = await res.blob();
+      const csv = '\uFEFF' + lines.join('\r\n');
+      const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = `export-commissions-${todayStr()}.csv`;
@@ -670,9 +671,10 @@ async function fetchAllCommissionsForExport() {
         const r=[ s.created_at?new Date(s.created_at).toLocaleString():'', s.order_id||'', s.institute_name||'', s.pro_name||'', s.postal_code||'', s.amount!=null?Number(s.amount).toFixed(2):'', s.currency||'' ].map(x=>`"${String(x).replace(/"/g,'""')}"`);
         lines.push(r.join(';'));
       });
-      const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
-      const a=document.createElement('a');
-      a.href=URL.createObjectURL(blob); a.download=`export-ventes-${todayStr()}.csv`;
+      const csv = '\uFEFF' + lines.join('\r\n');
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = `export-ventes-${todayStr()}.csv`;
       document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
     });
 
@@ -728,54 +730,80 @@ async function fetchAllCommissionsForExport() {
       }catch(e){ admMsg.textContent='Erreur chargement (bénéficiaires)'; console.error(e); }
     }
 
-    // Export Bénéficiaires (serveur si dispo, sinon fallback local)
-    refsExportBtn.addEventListener('click', async () => {
-      // Essai API CSV
-      try{
-        const p = {
-          search: (refsQ.value || admSearchEl.value.trim()),
-          rib: refsRibSel.value,
-          date_from: refsFrom.value || '',
-          date_to: refsTo.value || '',
-          limit: '10000',
-          offset: '0',
-          format: 'csv'
-        };
-        const url = `/api/admin/list-referrers?${new URLSearchParams(p).toString()}`;
-        const res = await fetch(url, { headers: auth() });
-        if (res.ok) {
-          const blob = await res.blob();
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(blob);
-          a.download = `export-beneficiaires-${todayStr()}.csv`;
-          document.body.appendChild(a);
-          a.click();
-          URL.revokeObjectURL(a.href);
-          a.remove();
-          return;
-        }
-      }catch(_){ /* on passera au fallback */ }
+// Export Bénéficiaires (serveur si dispo, sinon fallback local + BOM UTF-8 + CRLF)
+refsExportBtn.addEventListener('click', async () => {
+  // 1) Essai via l’API (si ton endpoint sait renvoyer un CSV filtré)
+  try{
+    const p = {
+      search: (refsQ.value || admSearchEl.value.trim()),
+      rib: refsRibSel.value,
+      date_from: refsFrom.value || '',
+      date_to: refsTo.value || '',
+      limit: '10000',
+      offset: '0',
+      format: 'csv'
+    };
+    const url = `/api/admin/list-referrers?${new URLSearchParams(p).toString()}`;
+    const res = await fetch(url, { headers: auth() });
+    if (res.ok) {
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `export-beneficiaires-${todayStr()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(a.href);
+      a.remove();
+      showToast('Export bénéficiaires OK', true);
+      return;
+    }
+  }catch(_){ /* on passera au fallback */ }
 
-      // Fallback local
-      if (!refsRows || !refsRows.length) { showToast('Aucune donnée à exporter', false); return; }
-      const head=['prenom_nom','email','code','rib_status','derniere_activite'];
-      const lines=[head.join(';')];
-      refsRows.forEach(x=>{
-        const r=[
-          `${x.first_name||''} ${x.last_name||''}`.trim(),
-          x.email||'',
-          x.code||'',
-          x.rib_status||'missing',
-          x.last_activity?new Date(x.last_activity).toLocaleString():''
-        ].map(v=>`"${String(v).replace(/"/g,'""')}"`);
-        lines.push(r.join(';'));
-      });
-      const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
-      const a=document.createElement('a');
-      a.href=URL.createObjectURL(blob);
-      a.download=`export-beneficiaires-${todayStr()}.csv`;
-      document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
+  // 2) Fallback local (on génère le CSV côté navigateur à partir de refsRows)
+  try {
+    if (!refsRows || !refsRows.length) {
+      showToast('Aucune donnée à exporter', false);
+      return;
+    }
+
+    // En-têtes (compatibles Excel FR)
+    const head = ['Commercial', 'Email', 'Code', 'Statut RIB', 'Dernière activité'];
+    const lines = [head.join(';')];
+
+    // Lignes
+    refsRows.forEach(x => {
+      const commercial = `${(x.first_name || '')} ${(x.last_name || '')}`.trim();
+      const email      = x.email || '';
+      const code       = x.code || '';
+      const rib        = x.rib_status || 'missing';
+      const last       = x.last_activity ? new Date(x.last_activity).toLocaleString() : '';
+
+      // On guillemette systématiquement
+      const row = [commercial, email, code, rib, last]
+        .map(v => `"${String(v).replace(/"/g, '""')}"`)
+        .join(';');
+
+      lines.push(row);
     });
+
+    // BOM UTF-8 + CRLF
+    const csv = '\uFEFF' + lines.join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `export-beneficiaires-${todayStr()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(a.href);
+    a.remove();
+
+    showToast('Export bénéficiaires OK', true);
+  } catch (e) {
+    console.error(e);
+    showToast('Export bénéficiaires impossible', false);
+  }
+});
 
     // ====== Charge TOUT en parallèle ======
     function loadAll(reset){
