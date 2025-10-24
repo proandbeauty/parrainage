@@ -483,9 +483,13 @@
 
     async function openProof(rib_id){
       try{
-        const token = (document.getElementById('token').value || '').trim();
+        if (!token()) { 
+          alert('Saisissez le token admin.'); 
+          return; 
+        }
+
         const r = await fetch(`/api/admin/ribs-proof?id=${encodeURIComponent(rib_id)}`, {
-          headers:{ Authorization:'Bearer '+token }
+          headers: auth()    // <-- utilise le bon token (#adm_token)
         });
 
         const text = await r.text();
