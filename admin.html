@@ -55,6 +55,17 @@
     .toast.ok .dot{width:10px;height:10px;border-radius:50%;background:var(--green)}
     .toast.bad .dot{width:10px;height:10px;border-radius:50%;background:var(--red)}
     .toast .label{font-weight:700}
+
+    /* --- Modal simple --- */
+.modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:10000}
+.modal.show{display:flex}
+.modal .scrim{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+.modal .panel{position:relative;background:var(--card);border:1px solid var(--divider);border-radius:14px;padding:16px;min-width:320px;max-width:92vw}
+.modal h3{margin:0 0 10px}
+.modal .row{margin-bottom:8px}
+.modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+.modal .danger{background:var(--red);color:#1b0b0b}
+
   </style>
 </head>
 <body>
@@ -88,6 +99,7 @@
             <option value="paid">Payé</option>
           </select>
           <button id="comm_export" class="btn-ghost">Exporter CSV</button>
+          <button id="sales_add" class="btn-ghost">Ajouter une vente</button>
           <div class="muted" id="comm_hint"></div>
         </div>
         <table>
@@ -159,7 +171,7 @@
           <tbody id="sales_tbody"><tr><td colspan="6" class="muted">Chargement…</td></tr></tbody>
         </table>
       </section>
-
+      
       <!-- === BENEFICIAIRES === -->
       <section id="tab_refs" class="hide">
         <div class="row">
@@ -180,15 +192,18 @@
             <tr>
               <th>Commercial</th>
               <th>Email</th>
+              <th>Téléphone</th>
+              <th>Marque</th>
               <th>Code</th>
               <th>Statut RIB</th>
               <th>Dernière activité</th>
+              <th>Actions</th>
             </tr>
           </thead>
-          <tbody id="refs_tbody"><tr><td colspan="5" class="muted">Chargement…</td></tr></tbody>
+          <tbody id="refs_tbody"><tr><td colspan="8" class="muted">Chargement…</td></tr></tbody>
         </table>
       </section>
-
+    
     </div>
   </div>
 
@@ -677,6 +692,32 @@ async function fetchAllCommissionsForExport() {
       a.href = URL.createObjectURL(blob); a.download = `export-ventes-${todayStr()}.csv`;
       document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
     });
+// Ouvrir la modale d'ajout de vente
+document.getElementById('sales_add')?.addEventListener('click', ()=> openModal('#modal-add-sale'));
+
+// Soumission création de vente
+document.getElementById('form-add-sale').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const f = e.currentTarget;
+  const payload = {
+    order_id: f.order_id.value.trim() || null,
+    institute_name: f.institute_name.value.trim(),
+    pro_name: f.pro_name.value.trim(),
+    postal_code: f.postal_code.value.trim(),
+    amount: Number(f.amount.value),
+    currency: f.currency.value.trim() || 'EUR',
+    referral_code: f.referral_code.value.trim(),
+    created_at: f.created_at.value ? new Date(f.created_at.value).toISOString() : null
+  };
+  const r = await fetch('/api/admin/create-sale', {
+    method:'POST', headers:{'Content-Type':'application/json', ...auth()}, body:JSON.stringify(payload)
+  });
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok){ showToast(j.error||'Création impossible', false); return; }
+  closeModal('#modal-add-sale');
+  showToast('Vente créée ✅', true);
+  loadSales(true);   // rafraîchir la liste
+});
 
     // ====== BENEFICIAIRES ======
     const refsTbody=$('#refs_tbody');
@@ -717,12 +758,23 @@ async function fetchAllCommissionsForExport() {
           refsTbody.innerHTML='';
           for(const x of refsRows){
             const tr=document.createElement('tr');
-            tr.innerHTML=`
-              <td><b>${(x.first_name||'')+' '+(x.last_name||'')}</b></td>
-              <td>${x.email||'-'}</td>
-              <td>${x.code||'-'}</td>
-              <td><span class="pill ${x.rib_status==='approved'?'ok':x.rib_status==='pending'?'warn':x.rib_status==='rejected'?'bad':''}">${x.rib_status||'missing'}</span></td>
-              <td>${x.last_activity?new Date(x.last_activity).toLocaleString():'-'}</td>`;
+            tr.innerHTML = `
+  <td><b>${(x.first_name||'')+' '+(x.last_name||'')}</b></td>
+  <td>${x.email||'-'}</td>
+  <td>${x.phone||'-'}</td>
+  <td>${x.brand||'-'}</td>
+  <td>${x.code||'-'}</td>
+  <td><span class="pill ${x.rib_status==='approved'?'ok':x.rib_status==='pending'?'warn':x.rib_status==='rejected'?'bad':''}">${x.rib_status||'missing'}</span></td>
+  <td>${x.last_activity?new Date(x.last_activity).toLocaleString():'-'}</td>
+  <td>
+    <button class="btn-ghost" data-ref="edit" data-id="${x.id}">Modifier</button>
+    ${x.is_suspended ? 
+      '<button class="btn-ghost" data-ref="toggle" data-to="active" data-id="'+x.id+'">Activer</button>'
+      : '<button class="btn-red" data-ref="toggle" data-to="suspended" data-id="'+x.id+'">Suspendre</button>'}
+    <button class="btn-red" data-ref="delete" data-id="${x.id}">Supprimer</button>
+    <button class="btn-ghost" data-ref="imp" data-id="${x.id}">Se connecter</button>
+  </td>`;
+
             refsTbody.appendChild(tr);
           }
         }
@@ -783,11 +835,146 @@ refsExportBtn.addEventListener('click', () => {
       loadSales(reset);
       loadReferrers(reset);
     }
+// helpers modales
+function openModal(sel){ const m=document.querySelector(sel); if(m){ m.classList.add('show'); } }
+function closeModal(sel){ const m=document.querySelector(sel); if(m){ m.classList.remove('show'); } }
+document.addEventListener('click',(e)=>{
+  const t=e.target.closest('[data-close]'); if(!t) return;
+  e.preventDefault(); closeModal(t.getAttribute('data-close'));
+});
+
+// Clicks sur actions bénéficiaires
+refsTbody.addEventListener('click', async (e)=>{
+  const b = e.target.closest('button[data-ref]'); if(!b) return;
+  const id = b.dataset.id;
+  const type = b.dataset.ref;
+
+  if(type==='edit'){
+    // Pré-remplir modal
+    const row = refsRows.find(r=> String(r.id)===String(id));
+    const f = document.getElementById('form-edit-ref');
+    f.id.value = row?.id || '';
+    f.first_name.value = row?.first_name || '';
+    f.last_name.value = row?.last_name || '';
+    f.email.value = row?.email || '';
+    f.phone.value = row?.phone || '';
+    f.brand.value = row?.brand || '';
+    f.code.value = row?.code || '';
+    openModal('#modal-edit-ref');
+    return;
+  }
+
+  if(type==='toggle'){
+    const to = b.dataset.to; // 'suspended' | 'active'
+    b.disabled = true; b.style.opacity=.7;
+    const r = await fetch('/api/admin/referrers-set-status', {
+      method:'POST',
+      headers:{'Content-Type':'application/json', ...auth()},
+      body:JSON.stringify({ id, status: to }) // côté serveur: applique is_suspended
+    });
+    const j = await r.json().catch(()=>({}));
+    b.disabled=false; b.style.opacity=1;
+    if(!r.ok){ showToast(j.error||'Action impossible', false); return; }
+    showToast(to==='suspended'?'Bénéficiaire suspendu':'Bénéficiaire réactivé', true);
+    loadReferrers(true);
+    return;
+  }
+
+  if(type==='delete'){
+    if(!confirm('Supprimer définitivement ce bénéficiaire ?')) return;
+    b.disabled = true; b.style.opacity=.7;
+    const r = await fetch('/api/admin/referrers-delete', {
+      method:'POST',
+      headers:{'Content-Type':'application/json', ...auth()},
+      body:JSON.stringify({ id })
+    });
+    const j = await r.json().catch(()=>({}));
+    b.disabled=false; b.style.opacity=1;
+    if(!r.ok){ showToast(j.error||'Suppression impossible', false); return; }
+    showToast('Bénéficiaire supprimé', true);
+    loadReferrers(true);
+    return;
+  }
+
+  if(type==='imp'){
+    // Impersonation: retourne une URL de login magique
+    const r = await fetch(`/api/admin/impersonate?referrer_id=${encodeURIComponent(id)}`, { headers: auth() });
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok || !j.url){ showToast(j.error||'Connexion impossible', false); return; }
+    window.open(j.url, '_blank', 'noopener');
+  }
+});
+
+// Submit édition bénéficiaire
+document.getElementById('form-edit-ref').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const f = e.currentTarget;
+  const payload = {
+    id: f.id.value,
+    first_name: f.first_name.value.trim(),
+    last_name: f.last_name.value.trim(),
+    email: f.email.value.trim(),
+    phone: f.phone.value.trim(),
+    brand: f.brand.value.trim(),
+    code: f.code.value.trim()
+  };
+  const r = await fetch('/api/admin/referrers-update', {
+    method:'POST', headers:{'Content-Type':'application/json', ...auth()}, body:JSON.stringify(payload)
+  });
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok){ showToast(j.error||'Mise à jour impossible', false); return; }
+  closeModal('#modal-edit-ref');
+  showToast('Bénéficiaire mis à jour', true);
+  loadReferrers(true);
+});
 
     // Auto au démarrage : si token présent, on charge tous les onglets
     document.addEventListener('DOMContentLoaded', ()=>{
       if(token()) loadAll(true);
     });
   </script>
+  <!-- Modal: éditer bénéficiaire -->
+<div id="modal-edit-ref" class="modal" aria-hidden="true">
+  <div class="scrim" data-close="#modal-edit-ref"></div>
+  <div class="panel">
+    <h3>Modifier le bénéficiaire</h3>
+    <form id="form-edit-ref">
+      <input type="hidden" name="id" />
+      <div class="row"><input name="first_name" placeholder="Prénom" required /></div>
+      <div class="row"><input name="last_name" placeholder="Nom" required /></div>
+      <div class="row"><input name="email" type="email" placeholder="Email" required /></div>
+      <div class="row"><input name="phone" placeholder="Téléphone" /></div>
+      <div class="row"><input name="brand" placeholder="Marque" /></div>
+      <div class="row"><input name="code" placeholder="Code parrain" /></div>
+      <div class="actions">
+        <button type="button" class="btn-ghost" data-close="#modal-edit-ref">Annuler</button>
+        <button class="btn-ghost">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: ajouter une vente / client -->
+<div id="modal-add-sale" class="modal" aria-hidden="true">
+  <div class="scrim" data-close="#modal-add-sale"></div>
+  <div class="panel">
+    <h3>Ajouter une vente / client</h3>
+    <form id="form-add-sale">
+      <div class="row"><input name="order_id" placeholder="N° commande (optionnel)" /></div>
+      <div class="row"><input name="institute_name" placeholder="Nom de l'institut" required /></div>
+      <div class="row"><input name="pro_name" placeholder="Professionnel" required /></div>
+      <div class="row"><input name="postal_code" placeholder="Code postal" required /></div>
+      <div class="row"><input name="amount" type="number" step="0.01" placeholder="Montant" required /></div>
+      <div class="row"><input name="currency" value="EUR" placeholder="Devise (ex: EUR)" required /></div>
+      <div class="row"><input name="referral_code" placeholder="Code parrain" required /></div>
+      <div class="row"><input name="created_at" type="datetime-local" placeholder="Date (optionnel)" /></div>
+      <div class="actions">
+        <button type="button" class="btn-ghost" data-close="#modal-add-sale">Annuler</button>
+        <button class="btn-ghost">Créer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 </body>
 </html>
