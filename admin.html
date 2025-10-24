@@ -483,20 +483,29 @@
 
     async function openProof(rib_id){
       try{
+        const token = (document.getElementById('token').value || '').trim();
         const r = await fetch(`/api/admin/ribs-proof?id=${encodeURIComponent(rib_id)}`, {
-          headers:{ Authorization:'Bearer '+(document.getElementById('token').value||'').trim() }
+          headers:{ Authorization:'Bearer '+token }
         });
-        const j = await r.json().catch(()=> ({}));
-        if(!r.ok){
-          alert(j.error ? `${j.error}${j.detail ? '\n'+j.detail : ''}` : 'Justificatif indisponible');
+
+        const text = await r.text();
+        let j = {};
+        try { j = text ? JSON.parse(text) : {}; } catch { j = { error: text || '' }; }
+
+        if (!r.ok) {
+          const msg = (j.error || `Erreur HTTP ${r.status}`) + (j.detail ? `\n${j.detail}` : '');
+          alert(msg || 'Justificatif indisponible');
           return;
         }
-    if(!j.url){ alert('Lien justificatif manquant.'); return; }
-    window.open(j.url, '_blank', 'noopener');
-  }catch(e){
-    alert('Impossible d’ouvrir le justificatif.');
-  }
-}
+        if (!j.url) { alert('Lien justificatif manquant.'); return; }
+
+    // ouverture (évite les bloqueurs car déclenché par un clic)
+        window.open(j.url, '_blank', 'noopener');
+      }catch(e){
+        console.error('openProof error:', e);
+        alert('Impossible d’ouvrir le justificatif.');
+      }
+    }
 
     ribMoreBtn.addEventListener('click', ()=> loadRibs(false));
     ribExportBtn.addEventListener('click', ()=>{
