@@ -248,7 +248,7 @@
         </div>
         <div class="actions">
           <button type="button" class="btn-ghost" data-close="#modal-edit-ref">Annuler</button>
-          <button class="btn-ghost">Enregistrer</button>
+          <button type="submit" class="btn-ghost">Enregistrer</button>
         </div>
       </form>
     </div>
@@ -287,7 +287,7 @@
         </div>
         <div class="actions">
           <button type="button" class="btn-ghost" data-close="#modal-add-sale">Annuler</button>
-          <button class="btn-ghost">Créer</button>
+          <button type="submit" class="btn-ghost">Créer</button>
         </div>
         <div class="error" data-err="form"></div>
       </form>
@@ -856,7 +856,7 @@
         referral_code: referral
       };
 
-      const submitBtn = f.querySelector('button[type="submit"]');
+      const submitBtn = f.querySelector('button[type="submit"]') || f.querySelector('button.btn-ghost:last-of-type');
       submitBtn.disabled = true; submitBtn.style.opacity=.7;
 
       try{
