@@ -221,6 +221,7 @@
       <h3>Modifier le bénéficiaire</h3>
       <form id="form-edit-ref">
         <div class="muted" style="color:#ff6b6b" data-err="form"></div>
+
         <input type="hidden" name="id" />
         <div class="row field">
           <input name="first_name" placeholder="Prénom" required />
@@ -715,7 +716,7 @@
 
     // ===================== VENTES =====================
     const salesTbody=$('#sales_tbody');
-    const salesFrom=$('#sales_from'), salesTo=$('#sales_to'), salesCP=$('#sales_cp'), salesMin=$('#sales_amt_min'), salesMax=$('#sales_amt_max']);
+    const salesFrom=$('#sales_from'), salesTo=$('#sales_to'), salesCP=$('#sales_cp'), salesMin=$('#sales_amt_min'), salesMax=$('#sales_amt_max');
     const salesExportBtn=$('#sales_export');
     const reloadSalesDebounced = debounce(()=> loadSales(true), 400);
     [salesFrom,salesTo,salesCP,salesMin,salesMax].forEach(el=> el.addEventListener('input', reloadSalesDebounced));
@@ -846,10 +847,10 @@
       if(!referral){ setFieldError(f.referral_code,'Code parrain requis'); hasErr=true; }
 
       if(hasErr){
-        const formErr = f.querySelector('[data-err="form"]');
-        if(formErr) formErr.textContent = 'Merci de corriger les erreurs ci-dessus.';
-        return;
-      }
+  const formErr = f.querySelector('[data-err="form"]');
+  if(formErr) formErr.textContent = 'Merci de corriger les erreurs ci-dessus.';
+  return;
+}
 
       const payload = {
         order_id,
@@ -862,7 +863,6 @@
       };
 
       const submitBtn = f.querySelector('button[type="submit"]') || f.querySelector('button.btn-ghost:last-of-type');
-      const formErr = f.querySelector('[data-err="form"]');
       submitBtn.disabled = true; submitBtn.style.opacity=.7;
 
       try{
@@ -875,7 +875,7 @@
 
         if(!r.ok){
           const msg = j.error || `Création impossible (HTTP ${r.status})`;
-          if(formErr) formErr.textContent = msg;           // <<<<<< CORRECTION ICI
+          setFieldError(f.querySelector('[data-err="form"]'), msg);
           showToast('Création impossible', false);
           submitBtn.disabled=false; submitBtn.style.opacity=1;
           return;
@@ -883,7 +883,6 @@
 
         closeModal('#modal-add-sale');
         f.reset();
-        if(formErr) formErr.textContent = '';
         showToast('Vente créée ✅', true);
 
         // Rafraîchir ventes + commissions
@@ -891,7 +890,7 @@
         loadCommissions(true);
       }catch(err){
         console.error(err);
-        if(formErr) formErr.textContent = 'Erreur réseau, réessaie.';  // <<<<<< CORRECTION ICI
+        setFieldError(f.querySelector('[data-err="form"]'), 'Erreur réseau, réessaie.');
         showToast('Création impossible', false);
       }finally{
         submitBtn.disabled=false; submitBtn.style.opacity=1;
@@ -1040,51 +1039,54 @@
 
     // Submit édition bénéficiaire (code parrain NON envoyé)
     document.getElementById('form-edit-ref').addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const f = e.currentTarget;
-      const submitBtn = f.querySelector('button[type="submit"], .actions button.btn-ghost:last-child') || f.querySelector('button');
-      const formErr = f.querySelector('[data-err="form"]');
-      if(formErr) formErr.textContent = '';
+  e.preventDefault();
+  const f = e.currentTarget;
+  const submitBtn = f.querySelector('button[type="submit"], .actions button.btn-ghost:last-child') || f.querySelector('button');
+  const formErr = f.querySelector('[data-err="form"]');
 
-      const payload = {
-        id: f.id.value,
-        first_name: f.first_name.value.trim(),
-        last_name: f.last_name.value.trim(),
-        email: f.email.value.trim(),
-        phone: f.phone.value.trim(),
-        brand: f.brand.value.trim()
-        // code NON envoyé volontairement
-      };
+  // reset erreurs éventuelles
+  if(formErr) formErr.textContent = '';
 
-      submitBtn.disabled = true; submitBtn.style.opacity = .7;
-      let j = {};
-      try {
-        const r = await fetch('/api/admin/referrers-update', {
-          method:'POST',
-          headers:{'Content-Type':'application/json', ...auth()},
-          body: JSON.stringify(payload)
-        });
+  const payload = {
+    id: f.id.value,
+    first_name: f.first_name.value.trim(),
+    last_name: f.last_name.value.trim(),
+    email: f.email.value.trim(),
+    phone: f.phone.value.trim(),
+    brand: f.brand.value.trim(),
+    code: f.code.value.trim() // sera ignoré côté serveur (le code est non modifiable)
+  };
 
-        const txt = await r.text();
-        try { j = txt ? JSON.parse(txt) : {}; } catch { j = { error: txt }; }
-
-        if(!r.ok){
-          if(formErr) formErr.textContent = j.error || `Mise à jour impossible (HTTP ${r.status})`;
-          showToast('Mise à jour impossible', false);
-          return;
-        }
-
-        closeModal('#modal-edit-ref');
-        showToast('Bénéficiaire mis à jour', true);
-        loadReferrers(true);
-      } catch (err) {
-        console.error(err);
-        if(formErr) formErr.textContent = 'Erreur réseau ou serveur.';
-        showToast('Mise à jour impossible', false);
-      } finally {
-        submitBtn.disabled = false; submitBtn.style.opacity = 1;
-      }
+  submitBtn.disabled = true; submitBtn.style.opacity = .7;
+  let j = {};
+  try {
+    const r = await fetch('/api/admin/referrers-update', {
+      method:'POST',
+      headers:{'Content-Type':'application/json', ...auth()},
+      body: JSON.stringify(payload)
     });
+
+    const txt = await r.text();         // <-- on récupère le texte brut
+    try { j = txt ? JSON.parse(txt) : {}; } catch { j = { error: txt }; }
+
+    if(!r.ok){
+      console.log('DEBUG referrers-update', r.status, txt);
+      if(formErr) formErr.textContent = j.error || `Mise à jour impossible (HTTP ${r.status})`;
+      showToast('Mise à jour impossible', false);
+      return;
+    }
+
+    closeModal('#modal-edit-ref');
+    showToast('Bénéficiaire mis à jour', true);
+    loadReferrers(true);
+  } catch (err) {
+    console.error(err);
+    if(formErr) formErr.textContent = 'Erreur réseau ou serveur.';
+    showToast('Mise à jour impossible', false);
+  } finally {
+    submitBtn.disabled = false; submitBtn.style.opacity = 1;
+  }
+});
 
     // ====== Charge tout au démarrage ======
     function loadAll(reset){
