@@ -499,7 +499,6 @@
         }
         if (!j.url) { alert('Lien justificatif manquant.'); return; }
 
-    // ouverture (évite les bloqueurs car déclenché par un clic)
         window.open(j.url, '_blank', 'noopener');
       }catch(e){
         console.error('openProof error:', e);

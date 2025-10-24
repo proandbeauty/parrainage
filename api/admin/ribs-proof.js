@@ -17,12 +17,12 @@ function authed(req){
   return t && t===ADMIN_TOKEN;
 }
 
-// Normalise doc_path -> object key (clé interne au bucket)
+// Normalise doc_path -> clé interne au bucket
 function toObjectKey(doc_path) {
   if (!doc_path) return null;
   let p = String(doc_path).trim();
 
-  // URL complète Supabase -> extrait "<bucket>/<key>" puis ne garde que <key>
+  // URL complète Supabase -> ne garde que <key>
   const m = p.match(/\/object\/(?:public|sign)\/([^/]+)\/(.+)$/);
   if (m && m[1] && m[2]) return m[2];
 
@@ -30,7 +30,7 @@ function toObjectKey(doc_path) {
   if (p.startsWith(`${BUCKET}/`))  return p.slice(BUCKET.length+1);
   if (p.startsWith(`/${BUCKET}/`)) return p.slice(BUCKET.length+2);
 
-  // Déjà une clé de type "folder/file.pdf"
+  // On suppose que c'est déjà "folder/file.pdf"
   return p;
 }
 
@@ -42,6 +42,7 @@ export default async function handler(req, res){
     const id = String(req.query.id||'').trim();
     if(!id) return bad(res,'id requis');
 
+    // doc_path dans bank_accounts
     const { data: row, error } = await supabase
       .from('bank_accounts')
       .select('id, doc_path')
@@ -55,7 +56,7 @@ export default async function handler(req, res){
     const key = toObjectKey(row.doc_path);
     console.log('[ribs-proof] bucket=', BUCKET, 'doc_path=', row.doc_path, '→ key=', key);
 
-    // 1) Vérifie l’existence (liste le dossier et cherche le nom de fichier)
+    // Vérifie l’existence (liste du dossier + recherche du fichier)
     const folder = key.split('/').slice(0,-1).join('/');
     const fname  = key.split('/').pop();
     const { data: listed, error: eList } = await supabase
@@ -65,13 +66,12 @@ export default async function handler(req, res){
 
     const exists = Array.isArray(listed) && listed.some(o => o.name === fname);
     if (!exists) {
-      // renvoie l’info pour debug précis
       return bad(res, 'Fichier introuvable dans le bucket', 404, `bucket=${BUCKET}, key=${key}`);
     }
 
-    // 2) Crée l’URL signée (1h)
+    // URL signée (1h)
     const { data: signed, error: eSign } = await supabase
-      .storage.from(BUCKET).createSignedUrl(key, 60*60);
+      .storage.from(BUCKET).createSignedUrl(key, 3600);
 
     if (eSign || !signed?.signedUrl) {
       return bad(res, 'Impossible de signer le justificatif', 500, eSign?.message || 'signedUrl missing');
