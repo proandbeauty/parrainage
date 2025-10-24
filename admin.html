@@ -730,43 +730,15 @@ async function fetchAllCommissionsForExport() {
       }catch(e){ admMsg.textContent='Erreur chargement (bénéficiaires)'; console.error(e); }
     }
 
-// Export Bénéficiaires (serveur si dispo, sinon fallback local + BOM UTF-8 + CRLF)
-refsExportBtn.addEventListener('click', async () => {
-  // 1) Essai via l’API (si ton endpoint sait renvoyer un CSV filtré)
-  try{
-    const p = {
-      search: (refsQ.value || admSearchEl.value.trim()),
-      rib: refsRibSel.value,
-      date_from: refsFrom.value || '',
-      date_to: refsTo.value || '',
-      limit: '10000',
-      offset: '0',
-      format: 'csv'
-    };
-    const url = `/api/admin/list-referrers?${new URLSearchParams(p).toString()}`;
-    const res = await fetch(url, { headers: auth() });
-    if (res.ok) {
-      const blob = await res.blob();
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `export-beneficiaires-${todayStr()}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      URL.revokeObjectURL(a.href);
-      a.remove();
-      showToast('Export bénéficiaires OK', true);
-      return;
-    }
-  }catch(_){ /* on passera au fallback */ }
-
-  // 2) Fallback local (on génère le CSV côté navigateur à partir de refsRows)
+// Export Bénéficiaires — génération locale (BOM UTF-8 + ; + CRLF)
+refsExportBtn.addEventListener('click', () => {
   try {
     if (!refsRows || !refsRows.length) {
       showToast('Aucune donnée à exporter', false);
       return;
     }
 
-    // En-têtes (compatibles Excel FR)
+    // En-têtes lisibles pour Excel FR
     const head = ['Commercial', 'Email', 'Code', 'Statut RIB', 'Dernière activité'];
     const lines = [head.join(';')];
 
@@ -778,7 +750,6 @@ refsExportBtn.addEventListener('click', async () => {
       const rib        = x.rib_status || 'missing';
       const last       = x.last_activity ? new Date(x.last_activity).toLocaleString() : '';
 
-      // On guillemette systématiquement
       const row = [commercial, email, code, rib, last]
         .map(v => `"${String(v).replace(/"/g, '""')}"`)
         .join(';');
@@ -786,8 +757,8 @@ refsExportBtn.addEventListener('click', async () => {
       lines.push(row);
     });
 
-    // BOM UTF-8 + CRLF
-    const csv = '\uFEFF' + lines.join('\r\n');
+    // BOM + CRLF pour forcer la bonne mise en colonnes
+    const csv  = '\uFEFF' + lines.join('\r\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
 
     const a = document.createElement('a');
