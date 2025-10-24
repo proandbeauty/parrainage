@@ -220,6 +220,7 @@
     <div class="panel">
       <h3>Modifier le bénéficiaire</h3>
       <form id="form-edit-ref">
+        <div class="muted" style="color:#ff6b6b" data-err="form"></div>
         <input type="hidden" name="id" />
         <div class="row field">
           <input name="first_name" placeholder="Prénom" required />
@@ -243,7 +244,7 @@
         </div>
         <!-- Code parrain: lecture seule (non modifiable) -->
         <div class="row field">
-          <input name="code" placeholder="Code parrain" readonly />
+          <input name="code" placeholder="Code parrain" readonly title="Le code ne peut pas être modifié depuis l’admin">
           <small class="error" data-err="code"></small>
         </div>
         <div class="actions">
@@ -714,7 +715,7 @@
 
     // ===================== VENTES =====================
     const salesTbody=$('#sales_tbody');
-    const salesFrom=$('#sales_from'), salesTo=$('#sales_to'), salesCP=$('#sales_cp'), salesMin=$('#sales_amt_min'), salesMax=$('#sales_amt_max');
+    const salesFrom=$('#sales_from'), salesTo=$('#sales_to'), salesCP=$('#sales_cp'), salesMin=$('#sales_amt_min'), salesMax=$('#sales_amt_max']);
     const salesExportBtn=$('#sales_export');
     const reloadSalesDebounced = debounce(()=> loadSales(true), 400);
     [salesFrom,salesTo,salesCP,salesMin,salesMax].forEach(el=> el.addEventListener('input', reloadSalesDebounced));
@@ -845,10 +846,10 @@
       if(!referral){ setFieldError(f.referral_code,'Code parrain requis'); hasErr=true; }
 
       if(hasErr){
-  const formErr = f.querySelector('[data-err="form"]');
-  if(formErr) formErr.textContent = 'Merci de corriger les erreurs ci-dessus.';
-  return;
-}
+        const formErr = f.querySelector('[data-err="form"]');
+        if(formErr) formErr.textContent = 'Merci de corriger les erreurs ci-dessus.';
+        return;
+      }
 
       const payload = {
         order_id,
@@ -861,6 +862,7 @@
       };
 
       const submitBtn = f.querySelector('button[type="submit"]') || f.querySelector('button.btn-ghost:last-of-type');
+      const formErr = f.querySelector('[data-err="form"]');
       submitBtn.disabled = true; submitBtn.style.opacity=.7;
 
       try{
@@ -873,7 +875,7 @@
 
         if(!r.ok){
           const msg = j.error || `Création impossible (HTTP ${r.status})`;
-          setFieldError(f.querySelector('[data-err="form"]'), msg);
+          if(formErr) formErr.textContent = msg;           // <<<<<< CORRECTION ICI
           showToast('Création impossible', false);
           submitBtn.disabled=false; submitBtn.style.opacity=1;
           return;
@@ -881,6 +883,7 @@
 
         closeModal('#modal-add-sale');
         f.reset();
+        if(formErr) formErr.textContent = '';
         showToast('Vente créée ✅', true);
 
         // Rafraîchir ventes + commissions
@@ -888,7 +891,7 @@
         loadCommissions(true);
       }catch(err){
         console.error(err);
-        setFieldError(f.querySelector('[data-err="form"]'), 'Erreur réseau, réessaie.');
+        if(formErr) formErr.textContent = 'Erreur réseau, réessaie.';  // <<<<<< CORRECTION ICI
         showToast('Création impossible', false);
       }finally{
         submitBtn.disabled=false; submitBtn.style.opacity=1;
@@ -1036,10 +1039,12 @@
     });
 
     // Submit édition bénéficiaire (code parrain NON envoyé)
-    document.getElementById('form-edit-ref')?.addEventListener('submit', async (e)=>{
+    document.getElementById('form-edit-ref').addEventListener('submit', async (e)=>{
       e.preventDefault();
       const f = e.currentTarget;
-      clearFormErrors(f);
+      const submitBtn = f.querySelector('button[type="submit"], .actions button.btn-ghost:last-child') || f.querySelector('button');
+      const formErr = f.querySelector('[data-err="form"]');
+      if(formErr) formErr.textContent = '';
 
       const payload = {
         id: f.id.value,
@@ -1048,38 +1053,36 @@
         email: f.email.value.trim(),
         phone: f.phone.value.trim(),
         brand: f.brand.value.trim()
-        // code volontairement non envoyé (lecture seule)
+        // code NON envoyé volontairement
       };
 
-      const submitBtn = f.querySelector('button[type="submit"]');
-      submitBtn.disabled = true; submitBtn.style.opacity=.7;
-
-      try{
+      submitBtn.disabled = true; submitBtn.style.opacity = .7;
+      let j = {};
+      try {
         const r = await fetch('/api/admin/referrers-update', {
-          method:'POST', headers:{'Content-Type':'application/json', ...auth()}, body:JSON.stringify(payload)
+          method:'POST',
+          headers:{'Content-Type':'application/json', ...auth()},
+          body: JSON.stringify(payload)
         });
-        const raw = await r.text(); let j={}; try{ j = raw?JSON.parse(raw):{} }catch{ j={ error: raw||'' } };
+
+        const txt = await r.text();
+        try { j = txt ? JSON.parse(txt) : {}; } catch { j = { error: txt }; }
+
         if(!r.ok){
-          const msg = j.error || `Mise à jour impossible (HTTP ${r.status})`;
-          setFieldError(f.querySelector('[data-err="first_name"]'), msg);
-
-          // ✅ Ajoute ces deux lignes juste ici (à l'intérieur du bloc)
-          const formErr = f.querySelector('[data-err="form"]');
-          if(formErr) formErr.textContent = j.error || 'Merci de corriger les erreurs ci-dessus.';
-
-           showToast('Mise à jour impossible', false);
-           submitBtn.disabled=false; submitBtn.style.opacity=1;
-           return;
+          if(formErr) formErr.textContent = j.error || `Mise à jour impossible (HTTP ${r.status})`;
+          showToast('Mise à jour impossible', false);
+          return;
         }
+
         closeModal('#modal-edit-ref');
         showToast('Bénéficiaire mis à jour', true);
         loadReferrers(true);
-      }catch(err){
+      } catch (err) {
         console.error(err);
-        setFieldError(f.querySelector('[data-err="first_name"]'), 'Erreur réseau, réessaie.');
+        if(formErr) formErr.textContent = 'Erreur réseau ou serveur.';
         showToast('Mise à jour impossible', false);
-      }finally{
-        submitBtn.disabled=false; submitBtn.style.opacity=1;
+      } finally {
+        submitBtn.disabled = false; submitBtn.style.opacity = 1;
       }
     });
 
