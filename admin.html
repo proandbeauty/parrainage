@@ -16,6 +16,7 @@
     .card{background:var(--card);border:1px solid var(--divider);border-radius:14px;padding:18px;margin-bottom:14px}
     h1,h2{margin:6px 0 12px}
     .row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+    input,select,button{font:inherit}
     input,select{background:#0f141c;border:1px solid var(--stroke);color:var(--text);border-radius:10px;padding:10px}
     button{background:var(--accent);border:none;color:#06281c;font-weight:700;padding:10px 14px;border-radius:10px;cursor:pointer;transition:opacity .15s}
     button:hover{background:var(--accent-2)}
@@ -39,7 +40,7 @@
     .tab.active{background:var(--accent);color:#06281c;border-color:transparent;font-weight:800}
     .hide{display:none !important}
 
-    /* Ligne flash */
+    /* Flash lignes */
     tr.flash-ok{animation: flashok 1.4s ease-out}
     tr.flash-bad{animation: flashbad 1.4s ease-out}
     @keyframes flashok { 0%{background:rgba(56,211,159,.25)} 100%{background:transparent} }
@@ -52,11 +53,12 @@
       padding:10px 12px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.35);
       display:flex;align-items:center;gap:8px;min-width:220px
     }
-    .toast.ok .dot{width:10px;height:10px;border-radius:50%;background:var(--green)}
-    .toast.bad .dot{width:10px;height:10px;border-radius:50%;background:var(--red)}
+    .toast.ok .dot,.toast.bad .dot{width:10px;height:10px;border-radius:50%}
+    .toast.ok .dot{background:var(--green)}
+    .toast.bad .dot{background:var(--red)}
     .toast .label{font-weight:700}
 
-    /* --- Modales --- */
+    /* Modales */
     .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:10000}
     .modal.show{display:flex}
     .modal .scrim{position:absolute;inset:0;background:rgba(0,0,0,.55)}
@@ -64,7 +66,6 @@
     .modal h3{margin:0 0 10px}
     .modal .row{margin-bottom:8px}
     .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
-    .modal .danger{background:var(--red);color:#1b0b0b}
   </style>
 </head>
 <body>
@@ -170,7 +171,7 @@
           <tbody id="sales_tbody"><tr><td colspan="6" class="muted">Chargement…</td></tr></tbody>
         </table>
       </section>
-      
+
       <!-- === BENEFICIAIRES === -->
       <section id="tab_refs" class="hide">
         <div class="row">
@@ -202,30 +203,76 @@
           <tbody id="refs_tbody"><tr><td colspan="8" class="muted">Chargement…</td></tr></tbody>
         </table>
       </section>
-    
     </div>
   </div>
 
   <!-- Toast container -->
   <div class="toastbox" id="toastbox"></div>
 
+  <!-- Modal: éditer bénéficiaire -->
+  <div id="modal-edit-ref" class="modal" aria-hidden="true">
+    <div class="scrim" data-close="#modal-edit-ref"></div>
+    <div class="panel">
+      <h3>Modifier le bénéficiaire</h3>
+      <form id="form-edit-ref">
+        <input type="hidden" name="id" />
+        <div class="row"><input name="first_name" placeholder="Prénom" required /></div>
+        <div class="row"><input name="last_name" placeholder="Nom" required /></div>
+        <div class="row"><input name="email" type="email" placeholder="Email" required /></div>
+        <div class="row"><input name="phone" placeholder="Téléphone" /></div>
+        <div class="row"><input name="brand" placeholder="Marque" /></div>
+        <div class="row"><input name="code" placeholder="Code parrain" /></div>
+        <div class="actions">
+          <button type="button" class="btn-ghost" data-close="#modal-edit-ref">Annuler</button>
+          <button class="btn-ghost">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: ajouter une vente / client -->
+  <div id="modal-add-sale" class="modal" aria-hidden="true">
+    <div class="scrim" data-close="#modal-add-sale"></div>
+    <div class="panel">
+      <h3>Ajouter une vente / client</h3>
+      <form id="form-add-sale" novalidate>
+        <div class="row"><input name="order_id" placeholder="N° commande (optionnel)" /></div>
+        <div class="row"><input name="institute_name" placeholder="Nom de l'institut" required /></div>
+        <div class="row"><input name="pro_name" placeholder="Professionnel" required /></div>
+        <!-- CP: exactement 5 chiffres -->
+        <div class="row">
+          <input name="postal_code" placeholder="Code postal (5 chiffres)" inputmode="numeric" pattern="^\\d{5}$" maxlength="5" required />
+        </div>
+        <!-- Montant: suggestions via datalist + contrôle JS -->
+        <div class="row">
+          <input name="amount" type="number" step="0.01" min="0.01" placeholder="Montant" list="amounts_list" required />
+          <datalist id="amounts_list"></datalist>
+        </div>
+        <!-- Devise et Date retirées (gérées côté serveur) -->
+        <div class="row"><input name="referral_code" placeholder="Code parrain" required /></div>
+        <div class="actions">
+          <button type="button" class="btn-ghost" data-close="#modal-add-sale">Annuler</button>
+          <button class="btn-ghost">Créer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================== SCRIPT (placé APRÈS le HTML, important) ================== -->
   <script>
     // --------- Helpers ----------
     const $ = q => document.querySelector(q);
     const debounce = (fn, ms=350)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
-
     function showToast(text, ok=true){
       const box = $('#toastbox');
       const div = document.createElement('div');
       div.className = 'toast ' + (ok ? 'ok' : 'bad');
-      div.innerHTML = `<span class="dot"></span><span class="label">${text}</span>`;
+      div.innerHTML = '<span class="dot"></span><span class="label">'+text+'</span>';
       box.appendChild(div);
       setTimeout(()=>{ div.style.opacity=.9 },10);
       setTimeout(()=>{ div.style.opacity=0; div.style.transform='translateY(-6px)'; }, 2200);
       setTimeout(()=>{ div.remove(); }, 2600);
     }
-
-    // ---- Utils téléchargement CSV + date ----
     async function downloadCsvFrom(url, filename) {
       try{
         const res = await fetch(url, { headers: auth() });
@@ -241,7 +288,6 @@
       }catch(_){ showToast('Export impossible', false); }
     }
     function todayStr(){ return new Date().toISOString().slice(0,10); }
-
     function setPill(el, status){
       el.textContent = status;
       el.classList.remove('ok','warn','bad');
@@ -249,7 +295,23 @@
       else if (status==='pending' || status==='en attente') el.classList.add('warn');
       else if (status==='rejected') el.classList.add('bad');
     }
+    function token(){ return (document.getElementById('adm_token').value || '').trim(); }
+    function auth(){ return { Authorization: 'Bearer '+token() }; }
 
+    // --------- Modales (ouvre/ferme + Échap) ----------
+    function openModal(sel){ const m=document.querySelector(sel); if(m){ m.classList.add('show'); } }
+    function closeModal(sel){ const m=document.querySelector(sel); if(m){ m.classList.remove('show'); } }
+    document.addEventListener('click',(e)=>{
+      const t=e.target.closest('[data-close]'); if(!t) return;
+      e.preventDefault(); closeModal(t.getAttribute('data-close'));
+    });
+    document.addEventListener('keydown', (e)=>{
+      if(e.key==='Escape'){
+        document.querySelectorAll('.modal.show').forEach(m=> m.classList.remove('show'));
+      }
+    });
+
+    // --------- Bandeau commun ----------
     const admTokenEl = $('#adm_token');
     const admSearchEl = $('#adm_search');
     const admMsg = $('#adm_msg');
@@ -271,16 +333,12 @@
     admSearchEl.addEventListener('input', debounce(()=> loadAll(true), 400));
     admTokenEl.addEventListener('input', debounce(()=> loadAll(true), 300));
 
-    function token(){ return (admTokenEl.value || '').trim(); }
-    function auth(){ return { Authorization: 'Bearer '+token() }; }
-
-    // ====== COMMISSIONS ======
+    // ===================== COMMISSIONS =====================
     const commTbody = $('#comm_tbody');
     const commStatusEl = $('#comm_status');
     const commMoreBtn = $('#comm_more');
     const commExportBtn = $('#comm_export');
     const commHint = $('#comm_hint');
-
     let commPage=1, commLimit=50, commHasMore=true, commOffset=0, commLastBatch=[];
 
     commStatusEl.addEventListener('change', ()=> loadCommissions(true));
@@ -408,7 +466,7 @@
 
     commMoreBtn.addEventListener('click', ()=>{ if(commHasMore) loadCommissions(false); });
 
-    // Export Commissions : essaye l'API CSV, sinon fallback local
+    // Export Commissions
     commExportBtn.addEventListener('click', async ()=>{
       try{
         const p = {
@@ -425,22 +483,15 @@
           document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
           return;
         }
-      } catch (_) { /* fallback */ }
+      } catch (_) {}
 
       try {
         const rows = await fetchAllCommissionsForExport();
         if (!rows.length) { showToast('Aucune commission à exporter', false); return; }
-
-        const head = [
-          'date','commission_id','status','role','amount','currency',
-          'beneficiary_name','beneficiary_email','referral_code',
-          'order_id','sale_amount','sale_currency','sale_date'
-        ];
+        const head = ['date','commission_id','status','role','amount','currency','beneficiary_name','beneficiary_email','referral_code','order_id','sale_amount','sale_currency','sale_date'];
         const lines = [head.join(';')];
-
         for (const c of rows) {
-          const b = c.beneficiary || {};
-          const s = c.sale || {};
+          const b = c.beneficiary || {}; const s = c.sale || {};
           const vals = [
             c.created_at ? new Date(c.created_at).toLocaleString() : '',
             c.id || '', c.status || '', c.role || '',
@@ -448,51 +499,37 @@
             `${(b.first_name||'')+' '+(b.last_name||'')}`.trim(), (b.email||''), (b.referral_code||''),
             (s.order_id||''), (s.amount!=null ? Number(s.amount).toFixed(2) : ''), (s.currency||''),
             s.created_at ? new Date(s.created_at).toLocaleString() : ''
-          ].map(x => `"${String(x).replace(/"/g,'""')}"`);
+          ].map(x => '"'+String(x).replace(/"/g,'""')+'"');
           lines.push(vals.join(';'));
         }
-
         const csv = '\uFEFF' + lines.join('\r\n');
         const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = `export-commissions-${todayStr()}.csv`;
         document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
-      } catch (e) {
-        console.error(e);
-        showToast('Export impossible', false);
-      }
+      } catch (e) { console.error(e); showToast('Export impossible', false); }
     });
 
-    // Paginate commissions pour fallback local
     async function fetchAllCommissionsForExport() {
       const out = [];
-      // 1) page/limit
       let page = 1, limit = 200, keep = true;
       while (keep && page <= 500) {
         const p = { search: admSearchEl.value.trim(), page: String(page), limit: String(limit) };
-        if (commStatusEl.value !== 'all') p.status = commStatusEl.value;
-        const url = `/api/admin/list-commissions?${new URLSearchParams(p).toString()}`;
-        const r = await fetch(url, { headers: auth() });
+        const r = await fetch(`/api/admin/list-commissions?${new URLSearchParams(p).toString()}`, { headers: auth() });
         if (r.status === 400 || r.status === 404 || r.status === 422) { keep = false; break; }
-        const j = await r.json();
-        if (!r.ok) throw new Error(j.error || 'Erreur liste commissions');
+        const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Erreur liste commissions');
         const batch = Array.isArray(j.items) ? j.items : (Array.isArray(j.rows) ? j.rows : []);
         out.push(...batch.map(commNormalize));
         if (j.hasMore === false || batch.length < limit) break;
         page++;
       }
       if (out.length) return out;
-
-      // 2) offset/limit
       let offset = 0; keep = true;
       while (keep && offset <= 20000) {
         const p = { search: admSearchEl.value.trim(), offset: String(offset), limit: '500' };
-        if (commStatusEl.value !== 'all') p.status = commStatusEl.value;
-        const url = `/api/admin/list-commissions?${new URLSearchParams(p).toString()}`;
-        const r = await fetch(url, { headers: auth() });
-        const j = await r.json();
-        if (!r.ok) throw new Error(j.error || 'Erreur liste commissions (offset)');
+        const r = await fetch(`/api/admin/list-commissions?${new URLSearchParams(p).toString()}`, { headers: auth() });
+        const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Erreur liste commissions (offset)');
         const batch = Array.isArray(j.items) ? j.items : (Array.isArray(j.rows) ? j.rows : []);
         out.push(...batch.map(commNormalize));
         if (!batch.length) break;
@@ -501,7 +538,7 @@
       return out;
     }
 
-    // ====== RIB ======
+    // ===================== RIB =====================
     const ribTbody=$('#rib_tbody'), ribStatusEl=$('#rib_status'), ribMoreBtn=$('#rib_more'), ribExportBtn=$('#rib_export'), ribHint=$('#rib_hint');
     let ribOffset=0, ribLastBatch=[], ribSortBy='created_at', ribSortDir='desc';
 
@@ -611,10 +648,10 @@
     ribMoreBtn.addEventListener('click', ()=> loadRibs(false));
     ribExportBtn.addEventListener('click', async ()=>{
       const p = {
-        status: ribStatusEl.value,
+        status: $('#rib_status').value,
         search: admSearchEl.value.trim(),
-        sort_by: ribSortBy,
-        order: ribSortDir,
+        sort_by: 'created_at',
+        order: 'desc',
         limit: '10000',
         offset: '0',
         format: 'csv'
@@ -623,7 +660,7 @@
       await downloadCsvFrom(url, `export-ribs-${todayStr()}.csv`);
     });
 
-    // ====== VENTES ======
+    // ===================== VENTES =====================
     const salesTbody=$('#sales_tbody');
     const salesFrom=$('#sales_from'), salesTo=$('#sales_to'), salesCP=$('#sales_cp'), salesMin=$('#sales_amt_min'), salesMax=$('#sales_amt_max');
     const salesExportBtn=$('#sales_export');
@@ -631,6 +668,7 @@
     [salesFrom,salesTo,salesCP,salesMin,salesMax].forEach(el=> el.addEventListener('input', reloadSalesDebounced));
 
     let salesOffset=0, salesLimit=100, salesRows=[];
+    let allowedAmounts = null; // alimenté par /api/admin/price-list
 
     async function loadSales(reset=true){
       try{
@@ -668,7 +706,7 @@
               <td>${s.institute_name||'-'}</td>
               <td>${s.pro_name||'-'}</td>
               <td>${s.postal_code||'-'}</td>
-              <td>${s.amount!=null?(Number(s.amount).toFixed(2)+' '+(s.currency||'')):'-'}</td>`;
+              <td>${s.amount!=null?(Number(s.amount).toFixed(2)+' '+(s.currency||'EUR')):'-'}</td>`;
             salesTbody.appendChild(tr);
           }
         }
@@ -681,7 +719,7 @@
       const head=['date','order_id','institut','professionnel','cp','montant','devise'];
       const lines=[head.join(';')];
       salesRows.forEach(s=>{
-        const r=[ s.created_at?new Date(s.created_at).toLocaleString():'', s.order_id||'', s.institute_name||'', s.pro_name||'', s.postal_code||'', s.amount!=null?Number(s.amount).toFixed(2):'', s.currency||'' ].map(x=>`"${String(x).replace(/"/g,'""')}"`);
+        const r=[ s.created_at?new Date(s.created_at).toLocaleString():'', s.order_id||'', s.institute_name||'', s.pro_name||'', s.postal_code||'', s.amount!=null?Number(s.amount).toFixed(2):'', s.currency||'EUR' ].map(x=>'"'+String(x).replace(/"/g,'""')+'"');
         lines.push(r.join(';'));
       });
       const csv = '\uFEFF' + lines.join('\r\n');
@@ -691,33 +729,70 @@
       document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
     });
 
-    // Modale ajout vente
+    // Ouvrir la modale d'ajout de vente
     document.getElementById('sales_add')?.addEventListener('click', ()=> openModal('#modal-add-sale'));
 
-    document.getElementById('form-add-sale').addEventListener('submit', async (e)=>{
+    // Charger la liste des montants autorisés (optionnel)
+    async function loadPriceList(){
+      try{
+        const r = await fetch('/api/admin/price-list', { headers: auth() });
+        if(!r.ok) return;
+        const j = await r.json();
+        const list = Array.isArray(j?.amounts) ? j.amounts : [];
+        if(list.length){
+          allowedAmounts = new Set(list.map(v=> Number(v)));
+          const dl = document.getElementById('amounts_list');
+          dl.innerHTML = '';
+          list.forEach(v=>{
+            const opt=document.createElement('option');
+            opt.value = String(v);
+            dl.appendChild(opt);
+          });
+        }
+      }catch(_){}
+    }
+
+    // Soumission création de vente (avec validations strictes)
+    document.getElementById('form-add-sale')?.addEventListener('submit', async (e)=>{
       e.preventDefault();
       const f = e.currentTarget;
+
+      // Validations côté client
+      const postal = f.postal_code.value.trim();
+      const amount = Number(f.amount.value);
+      const referral = f.referral_code.value.trim();
+      if(!/^\d{5}$/.test(postal)){ showToast('Code postal invalide (5 chiffres)', false); f.postal_code.focus(); return; }
+      if(!(amount>0)){ showToast('Montant invalide', false); f.amount.focus(); return; }
+      if(allowedAmounts && !allowedAmounts.has(Number(f.amount.value))){ showToast('Montant non autorisé (sélectionne une valeur proposée)', false); f.amount.focus(); return; }
+      if(!referral){ showToast('Code parrain requis', false); f.referral_code.focus(); return; }
+
       const payload = {
         order_id: f.order_id.value.trim() || null,
         institute_name: f.institute_name.value.trim(),
         pro_name: f.pro_name.value.trim(),
-        postal_code: f.postal_code.value.trim(),
-        amount: Number(f.amount.value),
-        currency: f.currency.value.trim() || 'EUR',
-        referral_code: f.referral_code.value.trim(),
-        created_at: f.created_at.value ? new Date(f.created_at.value).toISOString() : null
+        postal_code: postal,
+        amount: amount,
+        currency: 'EUR',            // forcé côté client, mais normalement ignoré côté API
+        referral_code: referral
+        // created_at: géré côté serveur
       };
+
       const r = await fetch('/api/admin/create-sale', {
         method:'POST', headers:{'Content-Type':'application/json', ...auth()}, body:JSON.stringify(payload)
       });
       const j = await r.json().catch(()=>({}));
       if(!r.ok){ showToast(j.error||'Création impossible', false); return; }
+
       closeModal('#modal-add-sale');
+      f.reset();
       showToast('Vente créée ✅', true);
+
+      // Rafraîchir ventes + commissions (si le total dépend des commissions)
       loadSales(true);
+      loadCommissions(true);
     });
 
-    // ====== BENEFICIAIRES ======
+    // ===================== BENEFICIAIRES =====================
     const refsTbody=$('#refs_tbody');
     const refsRibSel=$('#refs_rib'), refsFrom=$('#refs_from'), refsTo=$('#refs_to'), refsQ=$('#refs_q');
     const refsExportBtn=$('#refs_export');
@@ -779,13 +854,9 @@
       }catch(e){ admMsg.textContent='Erreur chargement (bénéficiaires)'; console.error(e); }
     }
 
-    // Export Bénéficiaires (local) — BOM + ; + CRLF
     refsExportBtn.addEventListener('click', () => {
       try {
-        if (!refsRows || !refsRows.length) {
-          showToast('Aucune donnée à exporter', false);
-          return;
-        }
+        if (!refsRows || !refsRows.length) { showToast('Aucune donnée à exporter', false); return; }
         const head = ['Commercial', 'Email', 'Code', 'Statut RIB', 'Dernière activité'];
         const lines = [head.join(';')];
         refsRows.forEach(x => {
@@ -794,9 +865,7 @@
           const code       = x.code || '';
           const rib        = x.rib_status || 'missing';
           const last       = x.last_activity ? new Date(x.last_activity).toLocaleString() : '';
-          const row = [commercial, email, code, rib, last]
-            .map(v => `"${String(v).replace(/"/g, '""')}"`)
-            .join(';');
+          const row = [commercial, email, code, rib, last].map(v => '"'+String(v).replace(/"/g, '""')+'"').join(';');
           lines.push(row);
         });
         const csv  = '\uFEFF' + lines.join('\r\n');
@@ -804,31 +873,9 @@
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = `export-beneficiaires-${todayStr()}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        URL.revokeObjectURL(a.href);
-        a.remove();
+        document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
         showToast('Export bénéficiaires OK', true);
-      } catch (e) {
-        console.error(e);
-        showToast('Export bénéficiaires impossible', false);
-      }
-    });
-
-    // ====== Charge TOUT ======
-    function loadAll(reset){
-      loadCommissions(reset);
-      loadRibs(reset);
-      loadSales(reset);
-      loadReferrers(reset);
-    }
-
-    // Helpers modales
-    function openModal(sel){ const m=document.querySelector(sel); if(m){ m.classList.add('show'); } }
-    function closeModal(sel){ const m=document.querySelector(sel); if(m){ m.classList.remove('show'); } }
-    document.addEventListener('click',(e)=>{
-      const t=e.target.closest('[data-close]'); if(!t) return;
-      e.preventDefault(); closeModal(t.getAttribute('data-close'));
+      } catch (e) { console.error(e); showToast('Export bénéficiaires impossible', false); }
     });
 
     // Clicks actions bénéficiaires
@@ -852,15 +899,12 @@
       }
 
       if(type==='toggle'){
-        const to = b.dataset.to; // 'suspended' | 'active'
+        const to = b.dataset.to;
         b.disabled = true; b.style.opacity=.7;
         const r = await fetch('/api/admin/referrers-set-status', {
-          method:'POST',
-          headers:{'Content-Type':'application/json', ...auth()},
-          body:JSON.stringify({ id, status: to })
+          method:'POST', headers:{'Content-Type':'application/json', ...auth()}, body:JSON.stringify({ id, status: to })
         });
-        const j = await r.json().catch(()=>({}));
-        b.disabled=false; b.style.opacity=1;
+        const j = await r.json().catch(()=>({})); b.disabled=false; b.style.opacity=1;
         if(!r.ok){ showToast(j.error||'Action impossible', false); return; }
         showToast(to==='suspended'?'Bénéficiaire suspendu':'Bénéficiaire réactivé', true);
         loadReferrers(true);
@@ -871,12 +915,9 @@
         if(!confirm('Supprimer définitivement ce bénéficiaire ?')) return;
         b.disabled = true; b.style.opacity=.7;
         const r = await fetch('/api/admin/referrers-delete', {
-          method:'POST',
-          headers:{'Content-Type':'application/json', ...auth()},
-          body:JSON.stringify({ id })
+          method:'POST', headers:{'Content-Type':'application/json', ...auth()}, body:JSON.stringify({ id })
         });
-        const j = await r.json().catch(()=>({}));
-        b.disabled=false; b.style.opacity=1;
+        const j = await r.json().catch(()=>({})); b.disabled=false; b.style.opacity=1;
         if(!r.ok){ showToast(j.error||'Suppression impossible', false); return; }
         showToast('Bénéficiaire supprimé', true);
         loadReferrers(true);
@@ -892,7 +933,7 @@
     });
 
     // Submit édition bénéficiaire
-    document.getElementById('form-edit-ref').addEventListener('submit', async (e)=>{
+    document.getElementById('form-edit-ref')?.addEventListener('submit', async (e)=>{
       e.preventDefault();
       const f = e.currentTarget;
       const payload = {
@@ -914,54 +955,17 @@
       loadReferrers(true);
     });
 
-    // Auto-load
+    // ====== Charge tout au démarrage + prix ======
+    function loadAll(reset){
+      loadCommissions(reset);
+      loadRibs(reset);
+      loadSales(reset);
+      loadReferrers(reset);
+    }
     document.addEventListener('DOMContentLoaded', ()=>{
-      if(token()) loadAll(true);
+      // (Le script est déjà après le HTML, mais on garde la logique)
     });
+    if(token()){ loadAll(true); loadPriceList(); }
   </script>
-
-  <!-- Modal: éditer bénéficiaire -->
-  <div id="modal-edit-ref" class="modal" aria-hidden="true">
-    <div class="scrim" data-close="#modal-edit-ref"></div>
-    <div class="panel">
-      <h3>Modifier le bénéficiaire</h3>
-      <form id="form-edit-ref">
-        <input type="hidden" name="id" />
-        <div class="row"><input name="first_name" placeholder="Prénom" required /></div>
-        <div class="row"><input name="last_name" placeholder="Nom" required /></div>
-        <div class="row"><input name="email" type="email" placeholder="Email" required /></div>
-        <div class="row"><input name="phone" placeholder="Téléphone" /></div>
-        <div class="row"><input name="brand" placeholder="Marque" /></div>
-        <div class="row"><input name="code" placeholder="Code parrain" /></div>
-        <div class="actions">
-          <button type="button" class="btn-ghost" data-close="#modal-edit-ref">Annuler</button>
-          <button class="btn-ghost">Enregistrer</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Modal: ajouter une vente / client -->
-  <div id="modal-add-sale" class="modal" aria-hidden="true">
-    <div class="scrim" data-close="#modal-add-sale"></div>
-    <div class="panel">
-      <h3>Ajouter une vente / client</h3>
-      <form id="form-add-sale">
-        <div class="row"><input name="order_id" placeholder="N° commande (optionnel)" /></div>
-        <div class="row"><input name="institute_name" placeholder="Nom de l'institut" required /></div>
-        <div class="row"><input name="pro_name" placeholder="Professionnel" required /></div>
-        <div class="row"><input name="postal_code" placeholder="Code postal" required /></div>
-        <div class="row"><input name="amount" type="number" step="0.01" placeholder="Montant" required /></div>
-        <div class="row"><input name="currency" value="EUR" placeholder="Devise (ex: EUR)" required /></div>
-        <div class="row"><input name="referral_code" placeholder="Code parrain" required /></div>
-        <div class="row"><input name="created_at" type="datetime-local" placeholder="Date (optionnel)" /></div>
-        <div class="actions">
-          <button type="button" class="btn-ghost" data-close="#modal-add-sale">Annuler</button>
-          <button class="btn-ghost">Créer</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
 </body>
 </html>
