@@ -393,14 +393,99 @@
     });
 
     commMoreBtn.addEventListener('click', ()=>{ if(commHasMore) loadCommissions(false); });
-    commExportBtn.addEventListener('click', async ()=>{
-      const p = {
-        search: admSearchEl.value.trim(),
-        ...(commStatusEl.value!=='all' ? { status: commStatusEl.value } : {})
-      };
-      const url = `/api/admin/export-commissions?${new URLSearchParams(p).toString()}`;
-      await downloadCsvFrom(url, `export-commissions-${todayStr()}.csv`);
-    });
+// Export Commissions : essaye l'API CSV, sinon fallback local (pagination list-commissions)
+commExportBtn.addEventListener('click', async ()=>{
+  try{
+    const p = {
+      search: admSearchEl.value.trim(),
+      ...(commStatusEl.value!=='all' ? { status: commStatusEl.value } : {})
+    };
+    const url = `/api/admin/export-commissions?${new URLSearchParams(p).toString()}`;
+    const res = await fetch(url, { headers: auth() });
+    if (res.ok) {
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `export-commissions-${todayStr()}.csv`;
+      document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
+      return;
+    }
+  } catch (_) { /* on tentera le fallback */ }
+
+  // Fallback local
+  try {
+    const rows = await fetchAllCommissionsForExport();
+    if (!rows.length) { showToast('Aucune commission à exporter', false); return; }
+
+    const head = [
+      'date','commission_id','status','role','amount','currency',
+      'beneficiary_name','beneficiary_email','referral_code',
+      'order_id','sale_amount','sale_currency','sale_date'
+    ];
+    const lines = [head.join(';')];
+
+    for (const c of rows) {
+      const b = c.beneficiary || {};
+      const s = c.sale || {};
+      const vals = [
+        c.created_at ? new Date(c.created_at).toLocaleString() : '',
+        c.id || '', c.status || '', c.role || '',
+        (c.amount!=null ? Number(c.amount).toFixed(2) : ''), (c.currency || ''),
+        `${(b.first_name||'')+' '+(b.last_name||'')}`.trim(), (b.email||''), (b.referral_code||''),
+        (s.order_id||''), (s.amount!=null ? Number(s.amount).toFixed(2) : ''), (s.currency||''),
+        s.created_at ? new Date(s.created_at).toLocaleString() : ''
+      ].map(x => `"${String(x).replace(/"/g,'""')}"`);
+      lines.push(vals.join(';'));
+    }
+
+    const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `export-commissions-${todayStr()}.csv`;
+    document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
+  } catch (e) {
+    console.error(e);
+    showToast('Export impossible', false);
+  }
+});
+
+// Récupère toutes les commissions en paginant (supporte page/limit OU offset/limit)
+async function fetchAllCommissionsForExport() {
+  const out = [];
+  // 1) tentative page/limit
+  let page = 1, limit = 200, keep = true;
+  while (keep && page <= 500) { // garde-fou
+    const p = { search: admSearchEl.value.trim(), page: String(page), limit: String(limit) };
+    if (commStatusEl.value !== 'all') p.status = commStatusEl.value;
+    const url = `/api/admin/list-commissions?${new URLSearchParams(p).toString()}`;
+    const r = await fetch(url, { headers: auth() });
+    if (r.status === 400 || r.status === 404 || r.status === 422) { keep = false; break; } // on passera à offset/limit
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || 'Erreur liste commissions');
+    const batch = Array.isArray(j.items) ? j.items : (Array.isArray(j.rows) ? j.rows : []);
+    out.push(...batch.map(commNormalize));
+    if (j.hasMore === false || batch.length < limit) break;
+    page++;
+  }
+  if (out.length) return out;
+
+  // 2) fallback offset/limit
+  let offset = 0; keep = true;
+  while (keep && offset <= 20000) {
+    const p = { search: admSearchEl.value.trim(), offset: String(offset), limit: '500' };
+    if (commStatusEl.value !== 'all') p.status = commStatusEl.value;
+    const url = `/api/admin/list-commissions?${new URLSearchParams(p).toString()}`;
+    const r = await fetch(url, { headers: auth() });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || 'Erreur liste commissions (offset)');
+    const batch = Array.isArray(j.items) ? j.items : (Array.isArray(j.rows) ? j.rows : []);
+    out.push(...batch.map(commNormalize));
+    if (!batch.length) break;
+    offset = j.nextOffset != null ? j.nextOffset : (offset + batch.length);
+  }
+  return out;
+}
+
 
     // ====== RIB ======
     const ribTbody=$('#rib_tbody'), ribStatusEl=$('#rib_status'), ribMoreBtn=$('#rib_more'), ribExportBtn=$('#rib_export'), ribHint=$('#rib_hint');
