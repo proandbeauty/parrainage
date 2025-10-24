@@ -844,7 +844,11 @@
       }
       if(!referral){ setFieldError(f.referral_code,'Code parrain requis'); hasErr=true; }
 
-      if(hasErr){ setFieldError(f.querySelector('[data-err="form"]'), 'Merci de corriger les erreurs ci-dessus.'); return; }
+      if(hasErr){
+  const formErr = f.querySelector('[data-err="form"]');
+  if(formErr) formErr.textContent = 'Merci de corriger les erreurs ci-dessus.';
+  return;
+}
 
       const payload = {
         order_id,
@@ -1058,9 +1062,14 @@
         if(!r.ok){
           const msg = j.error || `Mise à jour impossible (HTTP ${r.status})`;
           setFieldError(f.querySelector('[data-err="first_name"]'), msg);
-          showToast('Mise à jour impossible', false);
-          submitBtn.disabled=false; submitBtn.style.opacity=1;
-          return;
+
+          // ✅ Ajoute ces deux lignes juste ici (à l'intérieur du bloc)
+          const formErr = f.querySelector('[data-err="form"]');
+          if(formErr) formErr.textContent = j.error || 'Merci de corriger les erreurs ci-dessus.';
+
+           showToast('Mise à jour impossible', false);
+           submitBtn.disabled=false; submitBtn.style.opacity=1;
+           return;
         }
         closeModal('#modal-edit-ref');
         showToast('Bénéficiaire mis à jour', true);
