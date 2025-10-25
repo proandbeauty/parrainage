@@ -868,7 +868,7 @@
       try{
         const r = await fetch('https://tpwkptzlhxitllugmlho.supabase.co/functions/v1/create-sale', {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() },
+  headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token(pnb-admin-2025) },
   body: JSON.stringify(payload)
 });
         const raw = await r.text();
