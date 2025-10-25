@@ -866,9 +866,11 @@
       submitBtn.disabled = true; submitBtn.style.opacity=.7;
 
       try{
-        const r = await fetch('/api/admin/create-sale', {
-          method:'POST', headers:{'Content-Type':'application/json', ...auth()}, body:JSON.stringify(payload)
-        });
+        const r = await fetch('https://tpwkptzlhxitllugmlho.supabase.co/functions/v1/create-sale', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() },
+  body: JSON.stringify(payload)
+});
         const raw = await r.text();
         let j = {};
         try{ j = raw ? JSON.parse(raw) : {}; }catch{ j = { error: raw || '' }; }
