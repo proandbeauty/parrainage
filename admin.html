@@ -298,6 +298,11 @@
 
   <!-- ================== SCRIPT ================== -->
   <script>
+    // === DEBUG démarrage + erreurs globales ===
+console.log('[ADMIN] Script chargé');
+window.addEventListener('error',  e => console.error('[ADMIN] JS error:', e.message, 'at', e.filename+':'+e.lineno+':'+e.colno));
+window.addEventListener('unhandledrejection', e => console.error('[ADMIN] Promise rejection:', e.reason));
+
     // --------- Helpers ----------
     const $ = q => document.querySelector(q);
     const debounce = (fn, ms=350)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
@@ -376,6 +381,8 @@
 
     admTokenEl.value = localStorage.getItem('pnb_admin_token') || '';
     admTokenEl.addEventListener('change', ()=> localStorage.setItem('pnb_admin_token', admTokenEl.value.trim()));
+    console.log('[ADMIN] Token initial depuis localStorage =', admTokenEl.value);
+admTokenEl.addEventListener('input', ()=> console.log('[ADMIN] Token input =', admTokenEl.value));
 
     tabs.forEach(btn=>{
       btn.addEventListener('click', ()=>{
@@ -386,7 +393,15 @@
       });
     });
 
-    $('#adm_reload').addEventListener('click', ()=> { loadAll(true); });
+    const reloadBtn = $('#adm_reload');
+if (!reloadBtn) {
+  console.error('[ADMIN] Bouton Recharger introuvable au moment du bind');
+} else {
+  reloadBtn.addEventListener('click', ()=> {
+    console.log('[ADMIN] Recharger cliqué — token présent ?', !!token(), 'valeur:', token());
+    loadAll(true);
+  });
+}
     admSearchEl.addEventListener('input', debounce(()=> loadAll(true), 400));
     admTokenEl.addEventListener('input', debounce(()=> loadAll(true), 300));
 
@@ -417,6 +432,7 @@
     }
 
     async function loadCommissions(reset=true){
+      console.log('[ADMIN] loadCommissions(reset=', reset, ') token?', !!token());
       try{
         if(!token()){ admMsg.textContent='Saisissez le token admin.'; return; }
         if(reset){ commPage=1; commHasMore=true; commOffset=0; commTbody.innerHTML='<tr><td colspan="4" class="muted">Chargement…</td></tr>'; }
@@ -609,6 +625,7 @@
     ribStatusEl.addEventListener('change', ()=> loadRibs(true));
 
     async function loadRibs(reset=true){
+      console.log('[ADMIN] loadCommissions(reset=', reset, ') token?', !!token());
       try{
         if(!token()){ admMsg.textContent='Saisissez le token admin.'; return; }
         if(reset){ ribOffset=0; ribTbody.innerHTML='<tr><td colspan="5" class="muted">Chargement…</td></tr>'; }
@@ -729,6 +746,7 @@
     let allowedAmounts = null; // alimenté par /api/admin/price-list
 
     async function loadSales(reset=true){
+      console.log('[ADMIN] loadCommissions(reset=', reset, ') token?', !!token());
       try{
         if(!token()){ admMsg.textContent='Saisissez le token admin.'; return; }
         if(reset){ salesOffset=0; salesRows=[]; salesTbody.innerHTML='<tr><td colspan="6" class="muted">Chargement…</td></tr>'; }
@@ -922,6 +940,7 @@
     let refsOffset=0, refsLimit=100, refsRows=[];
 
     async function loadReferrers(reset=true){
+      console.log('[ADMIN] loadCommissions(reset=', reset, ') token?', !!token());
       try{
         if(!token()){ admMsg.textContent='Saisissez le token admin.'; return; }
         if(reset){ refsOffset=0; refsRows=[]; refsTbody.innerHTML='<tr><td colspan="8" class="muted">Chargement…</td></tr>'; }
