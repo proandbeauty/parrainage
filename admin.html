@@ -383,7 +383,7 @@ window.addEventListener('unhandledrejection', e => console.error('[ADMIN] Promis
     const tabs = document.querySelectorAll('.tab');
 
     admTokenEl.value = localStorage.getItem('pnb_admin_token') || '';
-    admTokenEl.addEventListener('change', ()=> localStorage.setItem('pnb_admin_token', admTokenEl.value.trim()));
+    admTokenEl.addEventListener('input', ()=> localStorage.setItem('pnb_admin_token', admTokenEl.value.trim()));
     console.log('[ADMIN] Token initial depuis localStorage =', admTokenEl.value);
 admTokenEl.addEventListener('input', ()=> console.log('[ADMIN] Token input =', admTokenEl.value));
 
