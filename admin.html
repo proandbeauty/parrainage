@@ -301,6 +301,10 @@
     // --------- Helpers ----------
     const $ = q => document.querySelector(q);
     const debounce = (fn, ms=350)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
+
+    // 👉 URL de l’Edge Function Supabase
+    const CREATE_SALE_URL = 'https://tpwkptzlhxitllugmlho.supabase.co/functions/v1/create-sale';
+
     function showToast(text, ok=true){
       const box = $('#toastbox');
       const div = document.createElement('div');
@@ -716,7 +720,7 @@
 
     // ===================== VENTES =====================
     const salesTbody=$('#sales_tbody');
-    const salesFrom=$('#sales_from'), salesTo=$('#sales_to'), salesCP=$('#sales_cp'), salesMin=$('#sales_amt_min'), salesMax=$('#sales_amt_max');
+    const salesFrom=$('#sales_from'), salesTo=$('#sales_to'), salesCP=$('#sales_cp'), salesMin=$('#sales_amt_min'), salesMax=$('#sales_amt_max']);
     const salesExportBtn=$('#sales_export');
     const reloadSalesDebounced = debounce(()=> loadSales(true), 400);
     [salesFrom,salesTo,salesCP,salesMin,salesMax].forEach(el=> el.addEventListener('input', reloadSalesDebounced));
@@ -846,11 +850,8 @@
       }
       if(!referral){ setFieldError(f.referral_code,'Code parrain requis'); hasErr=true; }
 
-      if(hasErr){
-  const formErr = f.querySelector('[data-err="form"]');
-  if(formErr) formErr.textContent = 'Merci de corriger les erreurs ci-dessus.';
-  return;
-}
+      const formErr = f.querySelector('[data-err="form"]');
+      if(hasErr){ if(formErr) formErr.textContent = 'Merci de corriger les erreurs ci-dessus.'; return; }
 
       const payload = {
         order_id,
@@ -866,25 +867,35 @@
       submitBtn.disabled = true; submitBtn.style.opacity=.7;
 
       try{
-        const r = await fetch('https://tpwkptzlhxitllugmlho.supabase.co/functions/v1/create-sale', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token(pnb-admin-2025) },
-  body: JSON.stringify(payload)
-});
+        // 🔐 Edge Function protégée par x-admin-token (ton ADMIN_TOKEN saisi en haut)
+        const r = await fetch(CREATE_SALE_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-token': token()
+          },
+          body: JSON.stringify(payload)
+        });
+
         const raw = await r.text();
         let j = {};
         try{ j = raw ? JSON.parse(raw) : {}; }catch{ j = { error: raw || '' }; }
 
         if(!r.ok){
-          const msg = j.error || `Création impossible (HTTP ${r.status})`;
-          setFieldError(f.querySelector('[data-err="form"]'), msg);
+          const reasonMap = {
+            'missing-header-or-token': 'Token admin manquant.',
+            'no-admin-token-loaded' : 'Le serveur n’a pas chargé le token admin.',
+            'token-mismatch'        : 'Token admin invalide.',
+          };
+          const msg = j.error || reasonMap[j.reason] || `Création impossible (HTTP ${r.status})`;
+          if(formErr) formErr.textContent = msg;
           showToast('Création impossible', false);
-          submitBtn.disabled=false; submitBtn.style.opacity=1;
           return;
         }
 
         closeModal('#modal-add-sale');
         f.reset();
+        if(formErr) formErr.textContent = '';
         showToast('Vente créée ✅', true);
 
         // Rafraîchir ventes + commissions
@@ -892,7 +903,7 @@
         loadCommissions(true);
       }catch(err){
         console.error(err);
-        setFieldError(f.querySelector('[data-err="form"]'), 'Erreur réseau, réessaie.');
+        if(formErr) formErr.textContent = 'Erreur réseau, réessaie.';
         showToast('Création impossible', false);
       }finally{
         submitBtn.disabled=false; submitBtn.style.opacity=1;
@@ -1041,54 +1052,51 @@
 
     // Submit édition bénéficiaire (code parrain NON envoyé)
     document.getElementById('form-edit-ref').addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const f = e.currentTarget;
-  const submitBtn = f.querySelector('button[type="submit"], .actions button.btn-ghost:last-child') || f.querySelector('button');
-  const formErr = f.querySelector('[data-err="form"]');
+      e.preventDefault();
+      const f = e.currentTarget;
+      const submitBtn = f.querySelector('button[type="submit"], .actions button.btn-ghost:last-child') || f.querySelector('button');
+      const formErr = f.querySelector('[data-err="form"]');
+      if(formErr) formErr.textContent = '';
 
-  // reset erreurs éventuelles
-  if(formErr) formErr.textContent = '';
+      const payload = {
+        id: f.id.value,
+        first_name: f.first_name.value.trim(),
+        last_name: f.last_name.value.trim(),
+        email: f.email.value.trim(),
+        phone: f.phone.value.trim(),
+        brand: f.brand.value.trim(),
+        code: f.code.value.trim() // ignoré côté serveur
+      };
 
-  const payload = {
-    id: f.id.value,
-    first_name: f.first_name.value.trim(),
-    last_name: f.last_name.value.trim(),
-    email: f.email.value.trim(),
-    phone: f.phone.value.trim(),
-    brand: f.brand.value.trim(),
-    code: f.code.value.trim() // sera ignoré côté serveur (le code est non modifiable)
-  };
+      submitBtn.disabled = true; submitBtn.style.opacity = .7;
+      let j = {};
+      try {
+        const r = await fetch('/api/admin/referrers-update', {
+          method:'POST',
+          headers:{'Content-Type':'application/json', ...auth()},
+          body: JSON.stringify(payload)
+        });
 
-  submitBtn.disabled = true; submitBtn.style.opacity = .7;
-  let j = {};
-  try {
-    const r = await fetch('/api/admin/referrers-update', {
-      method:'POST',
-      headers:{'Content-Type':'application/json', ...auth()},
-      body: JSON.stringify(payload)
+        const txt = await r.text();
+        try { j = txt ? JSON.parse(txt) : {}; } catch { j = { error: txt }; }
+
+        if(!r.ok){
+          if(formErr) formErr.textContent = j.error || `Mise à jour impossible (HTTP ${r.status})`;
+          showToast('Mise à jour impossible', false);
+          return;
+        }
+
+        closeModal('#modal-edit-ref');
+        showToast('Bénéficiaire mis à jour', true);
+        loadReferrers(true);
+      } catch (err) {
+        console.error(err);
+        if(formErr) formErr.textContent = 'Erreur réseau ou serveur.';
+        showToast('Mise à jour impossible', false);
+      } finally {
+        submitBtn.disabled = false; submitBtn.style.opacity = 1;
+      }
     });
-
-    const txt = await r.text();         // <-- on récupère le texte brut
-    try { j = txt ? JSON.parse(txt) : {}; } catch { j = { error: txt }; }
-
-    if(!r.ok){
-      console.log('DEBUG referrers-update', r.status, txt);
-      if(formErr) formErr.textContent = j.error || `Mise à jour impossible (HTTP ${r.status})`;
-      showToast('Mise à jour impossible', false);
-      return;
-    }
-
-    closeModal('#modal-edit-ref');
-    showToast('Bénéficiaire mis à jour', true);
-    loadReferrers(true);
-  } catch (err) {
-    console.error(err);
-    if(formErr) formErr.textContent = 'Erreur réseau ou serveur.';
-    showToast('Mise à jour impossible', false);
-  } finally {
-    submitBtn.disabled = false; submitBtn.style.opacity = 1;
-  }
-});
 
     // ====== Charge tout au démarrage ======
     function loadAll(reset){
