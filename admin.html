@@ -322,9 +322,12 @@ window.addEventListener('unhandledrejection', e => console.error('[ADMIN] Promis
     }
     function todayStr(){ return new Date().toISOString().slice(0,10); }
     function token(){ return ($('#adm_token').value || '').trim(); }
-    function auth(){ 
+    function auth(){
   const t = token();
-  return { Authorization: 'Bearer ' + t };
+  return {
+    'x-admin-token': t,
+    'Authorization': 'Bearer ' + t
+  };
 }
     function setPill(el, status){
       el.textContent = status;
@@ -466,35 +469,44 @@ if (!reloadBtn) {
         }else{
           for(const c of commLastBatch){
             const b=c.beneficiary||{}, s=c.sale||{};
-            const tr=document.createElement('tr');
-            tr.innerHTML=`
-              <td>
-                <div><b>${Number(c.amount).toFixed(2)} ${c.currency||''}</b>
-                  <span class="pill ${c.status==='paid'?'ok':c.status==='approved'?'ok':c.status==='pending'?'warn':''}" data-pill="status">${c.status}</span>
-                  <span class="pill">${c.role}</span>
-                </div>
-                <div class="muted">${c.created_at?new Date(c.created_at).toLocaleString():''}</div>
-                <div class="muted">ID: ${c.id||''}</div>
-              </td>
-              <td>
-                <div><b>${(b.first_name||'')+' '+(b.last_name||'')}</b></div>
-                <div class="muted">${b.email||''}</div>
-                <div class="muted">Code: ${b.referral_code||''}</div>
-              </td>
-              <td>
-                <div>Commande: <b>${s.order_id||'-'}</b></div>
-                <div class="muted">Montant: ${s.amount!=null?Number(s.amount).toFixed(2)+' '+(s.currency||''):'-'}</div>
-                <div class="muted">${s.created_at?new Date(s.created_at).toLocaleString():''}</div>
-              </td>
-              <td>
-                ${c.status==='approved'||c.status==='paid'
-                  ? '<button class="btn-done" disabled>Approuvé ✓</button>'
-                  : `<button class="btn-ghost" data-comm="approved" data-id="${c.id}">Approuver</button>`}
-                ${c.status==='paid'
-                  ? '<button class="btn-done" disabled>Payé ✓</button>'
-                  : `<button class="btn-red" data-comm="paid" data-id="${c.id}">Marquer payé</button>`}
-              </td>`;
-            commTbody.appendChild(tr);
+            const b = c.beneficiary || {};
+const s = c.sale || {};
+const tr = document.createElement('tr');
+
+const statusClass = (c.status === 'paid' || c.status === 'approved')
+  ? 'ok'
+  : (c.status === 'pending' ? 'warn' : '');
+
+const approveBtn = (c.status === 'approved' || c.status === 'paid')
+  ? '<button class="btn-done" disabled>Approuvé ✓</button>'
+  : '<button class="btn-ghost" data-comm="approved" data-id="' + c.id + '">Approuver</button>';
+
+const paidBtn = (c.status === 'paid')
+  ? '<button class="btn-done" disabled>Payé ✓</button>'
+  : '<button class="btn-red" data-comm="paid" data-id="' + c.id + '">Marquer payé</button>';
+
+tr.innerHTML =
+  '<td>' +
+    '<div><b>' + Number(c.amount).toFixed(2) + ' ' + (c.currency || '') + '</b> ' +
+      '<span class="pill ' + statusClass + '" data-pill="status">' + c.status + '</span> ' +
+      '<span class="pill">' + (c.role || '') + '</span>' +
+    '</div>' +
+    '<div class="muted">' + (c.created_at ? new Date(c.created_at).toLocaleString() : '') + '</div>' +
+    '<div class="muted">ID: ' + (c.id || '') + '</div>' +
+  '</td>' +
+  '<td>' +
+    '<div><b>' + ((b.first_name || '') + ' ' + (b.last_name || '')) + '</b></div>' +
+    '<div class="muted">' + (b.email || '') + '</div>' +
+    '<div class="muted">Code: ' + (b.referral_code || '') + '</div>' +
+  '</td>' +
+  '<td>' +
+    '<div>Commande: <b>' + (s.order_id || '-') + '</b></div>' +
+    '<div class="muted">Montant: ' + (s.amount != null ? Number(s.amount).toFixed(2) + ' ' + (s.currency || '') : '-') + '</div>' +
+    '<div class="muted">' + (s.created_at ? new Date(s.created_at).toLocaleString() : '') + '</div>' +
+  '</td>' +
+  '<td>' + approveBtn + ' ' + paidBtn + '</td>';
+
+commTbody.appendChild(tr);
           }
         }
 
@@ -800,216 +812,33 @@ ribTbody.appendChild(tr);
         }else{
           salesTbody.innerHTML='';
           for(const s of salesRows){
-            const tr=document.createElement('tr');
-            tr.innerHTML=`
-              <td>${s.created_at?new Date(s.created_at).toLocaleString():''}</td>
-              <td><b>${s.order_id||'-'}</b></td>
-              <td>${s.institute_name||'-'}</td>
-              <td>${s.pro_name||'-'}</td>
-              <td>${s.postal_code||'-'}</td>
-              <td>${s.amount!=null?(Number(s.amount).toFixed(2)+' '+(s.currency||'EUR')):'-'}</td>`;
-            salesTbody.appendChild(tr);
-          }
-        }
-        salesOffset = j.nextOffset ?? (salesOffset + (j.items?.length||0));
-      }catch(e){ admMsg.textContent='Erreur chargement (ventes)'; console.error(e); }
-    }
+            const tr = document.createElement('tr');
 
-    salesExportBtn.addEventListener('click', ()=>{
-      if(!salesRows.length){ showToast('Aucune donnée à exporter', false); return; }
-      const head=['date','order_id','institut','professionnel','cp','montant','devise'];
-      const lines=[head.join(';')];
-      salesRows.forEach(s=>{
-        const r=[ s.created_at?new Date(s.created_at).toLocaleString():'', s.order_id||'', s.institute_name||'', s.pro_name||'', s.postal_code||'', s.amount!=null?Number(s.amount).toFixed(2):'', s.currency||'EUR' ].map(x=>'"'+String(x).replace(/"/g,'""')+'"');
-        lines.push(r.join(';'));
-      });
-      const csv = '\uFEFF' + lines.join('\r\n');
-      const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob); a.download = `export-ventes-${todayStr()}.csv`;
-      document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
-    });
+const ribClass =
+  (x.rib_status === 'approved') ? 'ok' :
+  (x.rib_status === 'pending')  ? 'warn' :
+  (x.rib_status === 'rejected') ? 'bad'  : '';
 
-    // Ouvrir la modale d'ajout de vente
-    document.getElementById('sales_add')?.addEventListener('click', async ()=>{
-      openModal('#modal-add-sale');
-      await loadPriceList(); // recharge la liste au moment d’ouvrir
-    });
+const toggleBtn = x.is_suspended
+  ? '<button class="btn-ghost" data-ref="toggle" data-to="active" data-id="' + x.id + '">Activer</button>'
+  : '<button class="btn-red" data-ref="toggle" data-to="suspended" data-id="' + x.id + '">Suspendre</button>';
 
-    // Charger la liste des montants autorisés (optionnel)
-    async function loadPriceList(){
-      try{
-        const r = await fetch('/api/admin/price-list', { headers: auth() });
-        if(!r.ok) { allowedAmounts=null; return; }
-        const j = await r.json();
-        const list = Array.isArray(j?.amounts) ? j.amounts : [];
-        const dl = document.getElementById('amounts_list');
-        dl.innerHTML = '';
-        if(list.length){
-          allowedAmounts = new Set(list.map(v=> Number(v)));
-          list.forEach(v=>{
-            const opt=document.createElement('option');
-            opt.value = String(v);
-            dl.appendChild(opt);
-          });
-        }else{
-          allowedAmounts=null;
-          showToast('Aucune liste de montants trouvée', false);
-        }
-      }catch(_){
-        allowedAmounts=null;
-        showToast('Impossible de charger la liste des montants', false);
-      }
-    }
+tr.innerHTML =
+  '<td><b>' + ((x.first_name || '') + ' ' + (x.last_name || '')) + '</b></td>' +
+  '<td>' + (x.email || '-') + '</td>' +
+  '<td>' + (x.phone || '-') + '</td>' +
+  '<td>' + (x.brand || '-') + '</td>' +
+  '<td>' + (x.code || '-') + '</td>' +
+  '<td><span class="pill ' + ribClass + '">' + (x.rib_status || 'missing') + '</span></td>' +
+  '<td>' + (x.last_activity ? new Date(x.last_activity).toLocaleString() : '-') + '</td>' +
+  '<td>' +
+    '<button class="btn-ghost" data-ref="edit" data-id="' + x.id + '">Modifier</button> ' +
+    toggleBtn + ' ' +
+    '<button class="btn-red" data-ref="delete" data-id="' + x.id + '">Supprimer</button> ' +
+    '<button class="btn-ghost" data-ref="imp" data-id="' + x.id + '">Se connecter</button>' +
+  '</td>';
 
-    // Masque visuel du CP (empêche lettres) + nettoyage
-    const cpInput = document.querySelector('#form-add-sale input[name="postal_code"]');
-    cpInput?.addEventListener('input', ()=>{
-      const v = cpInput.value.replace(/\D+/g,'').slice(0,5);
-      cpInput.value = v;
-      clearFieldError(cpInput);
-    });
-
-    // Soumission création de vente (avec validations et erreurs visibles)
-    document.getElementById('form-add-sale')?.addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const f = e.currentTarget;
-      clearFormErrors(f);
-
-      const order_id = f.order_id.value.trim() || null;
-      const institute = f.institute_name.value.trim();
-      const pro = f.pro_name.value.trim();
-      const postal = f.postal_code.value.trim();
-      const amount = Number(f.amount.value);
-      const referral = f.referral_code.value.trim();
-
-      let hasErr=false;
-      if(!institute){ setFieldError(f.institute_name,'Nom de l’institut requis'); hasErr=true; }
-      if(!pro){ setFieldError(f.pro_name,'Nom du professionnel requis'); hasErr=true; }
-      if(!/^\d{5}$/.test(postal)){ setFieldError(f.postal_code,'Code postal invalide (5 chiffres)'); hasErr=true; }
-      if(!(amount>0)){ setFieldError(f.amount,'Montant invalide (> 0)'); hasErr=true; }
-      if(allowedAmounts && !allowedAmounts.has(Number(f.amount.value))){
-        setFieldError(f.amount,'Montant non autorisé — choisis une valeur proposée'); hasErr=true;
-      }
-      if(!referral){ setFieldError(f.referral_code,'Code parrain requis'); hasErr=true; }
-
-      const formErr = f.querySelector('[data-err="form"]');
-      if(hasErr){ if(formErr) formErr.textContent = 'Merci de corriger les erreurs ci-dessus.'; return; }
-
-      const payload = {
-        order_id,
-        institute_name: institute,
-        pro_name: pro,
-        postal_code: postal,
-        amount: amount,
-        currency: 'EUR',
-        referral_code: referral
-      };
-
-      const submitBtn = f.querySelector('button[type="submit"]') || f.querySelector('button.btn-ghost:last-of-type');
-      submitBtn.disabled = true; submitBtn.style.opacity=.7;
-
-      try{
-        // 🔐 Edge Function protégée par x-admin-token (ton ADMIN_TOKEN saisi en haut)
-        const r = await fetch(CREATE_SALE_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-token': token()
-          },
-          body: JSON.stringify(payload)
-        });
-
-        const raw = await r.text();
-        let j = {};
-        try{ j = raw ? JSON.parse(raw) : {}; }catch{ j = { error: raw || '' }; }
-
-        if(!r.ok){
-          const reasonMap = {
-            'missing-header-or-token': 'Token admin manquant.',
-            'no-admin-token-loaded' : 'Le serveur n’a pas chargé le token admin.',
-            'token-mismatch'        : 'Token admin invalide.',
-          };
-          const msg = j.error || reasonMap[j.reason] || `Création impossible (HTTP ${r.status})`;
-          if(formErr) formErr.textContent = msg;
-          showToast('Création impossible', false);
-          return;
-        }
-
-        closeModal('#modal-add-sale');
-        f.reset();
-        if(formErr) formErr.textContent = '';
-        showToast('Vente créée ✅', true);
-
-        // Rafraîchir ventes + commissions
-        loadSales(true);
-        loadCommissions(true);
-      }catch(err){
-        console.error(err);
-        if(formErr) formErr.textContent = 'Erreur réseau, réessaie.';
-        showToast('Création impossible', false);
-      }finally{
-        submitBtn.disabled=false; submitBtn.style.opacity=1;
-      }
-    });
-
-    // ===================== BENEFICIAIRES =====================
-    const refsTbody=$('#refs_tbody');
-    const refsRibSel=$('#refs_rib'), refsFrom=$('#refs_from'), refsTo=$('#refs_to'), refsQ=$('#refs_q');
-    const refsExportBtn=$('#refs_export');
-    const reloadRefsDebounced = debounce(()=> loadReferrers(true), 400);
-    [refsRibSel,refsFrom,refsTo,refsQ].forEach(el=>{
-      el.addEventListener(el.tagName==='SELECT'?'change':'input', reloadRefsDebounced);
-    });
-
-    let refsOffset=0, refsLimit=100, refsRows=[];
-
-    async function loadReferrers(reset=true){
-      console.log('[ADMIN] loadCommissions(reset=', reset, ') token?', !!token());
-      try{
-        if(!token()){ admMsg.textContent='Saisissez le token admin.'; return; }
-        if(reset){ refsOffset=0; refsRows=[]; refsTbody.innerHTML='<tr><td colspan="8" class="muted">Chargement…</td></tr>'; }
-
-        const qs=new URLSearchParams({
-          search: refsQ.value || admSearchEl.value.trim(),
-          rib: refsRibSel.value,
-          date_from: refsFrom.value || '',
-          date_to: refsTo.value || '',
-          limit: String(refsLimit),
-          offset: String(refsOffset)
-        }).toString();
-
-        const r=await fetch(`/api/admin/list-referrers?${qs}`,{ headers:auth() });
-        const j=await r.json();
-        if(!r.ok){ admMsg.textContent=j.error||'Erreur'; return; }
-        if(reset) refsTbody.innerHTML='';
-
-        const batch=j.items||[];
-        refsRows = reset ? batch : refsRows.concat(batch);
-
-        if(refsRows.length===0){
-          refsTbody.innerHTML='<tr><td colspan="8" class="muted">Aucun bénéficiaire.</td></tr>';
-        }else{
-          refsTbody.innerHTML='';
-          for(const x of refsRows){
-            const tr=document.createElement('tr');
-            tr.innerHTML = `
-  <td><b>${(x.first_name||'')+' '+(x.last_name||'')}</b></td>
-  <td>${x.email||'-'}</td>
-  <td>${x.phone||'-'}</td>
-  <td>${x.brand||'-'}</td>
-  <td>${x.code||'-'}</td>
-  <td><span class="pill ${x.rib_status==='approved'?'ok':x.rib_status==='pending'?'warn':x.rib_status==='rejected'?'bad':''}">${x.rib_status||'missing'}</span></td>
-  <td>${x.last_activity?new Date(x.last_activity).toLocaleString():'-'}</td>
-  <td>
-    <button class="btn-ghost" data-ref="edit" data-id="${x.id}">Modifier</button>
-    ${x.is_suspended ? 
-      '<button class="btn-ghost" data-ref="toggle" data-to="active" data-id="'+x.id+'">Activer</button>'
-      : '<button class="btn-red" data-ref="toggle" data-to="suspended" data-id="'+x.id+'">Suspendre</button>'}
-    <button class="btn-red" data-ref="delete" data-id="${x.id}">Supprimer</button>
-    <button class="btn-ghost" data-ref="imp" data-id="${x.id}">Se connecter</button>
-  </td>`;
-            refsTbody.appendChild(tr);
+refsTbody.appendChild(tr);
           }
         }
         refsOffset = j.nextOffset ?? (refsOffset + (j.items?.length||0));
