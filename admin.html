@@ -468,7 +468,6 @@ if (!reloadBtn) {
           commTbody.innerHTML='<tr><td colspan="4" class="muted">Aucune commission.</td></tr>';
         }else{
           for(const c of commLastBatch){
-            const b=c.beneficiary||{}, s=c.sale||{};
             const b = c.beneficiary || {};
 const s = c.sale || {};
 const tr = document.createElement('tr');
