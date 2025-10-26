@@ -322,7 +322,10 @@ window.addEventListener('unhandledrejection', e => console.error('[ADMIN] Promis
     }
     function todayStr(){ return new Date().toISOString().slice(0,10); }
     function token(){ return ($('#adm_token').value || '').trim(); }
-    function auth(){ return { 'x-admin-token': token() }; }
+    function auth(){ 
+  const t = token();
+  return { Authorization: 'Bearer ' + t };
+}
     function setPill(el, status){
       el.textContent = status;
       el.classList.remove('ok','warn','bad');
