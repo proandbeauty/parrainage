@@ -317,7 +317,7 @@
     }
     function todayStr(){ return new Date().toISOString().slice(0,10); }
     function token(){ return ($('#adm_token').value || '').trim(); }
-    function auth(){ return { Authorization: 'Bearer '+token() }; }
+    function auth(){ return { 'x-admin-token': token() }; }
     function setPill(el, status){
       el.textContent = status;
       el.classList.remove('ok','warn','bad');
