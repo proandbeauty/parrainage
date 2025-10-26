@@ -640,24 +640,46 @@ if (!reloadBtn) {
         if(ribLastBatch.length===0 && ribOffset===0){ ribTbody.innerHTML='<tr><td colspan="5" class="muted">Aucun RIB.</td></tr>'; }
         else{
           for(const row of ribLastBatch){
-            const ref=row.referrer||{}; const tr=document.createElement('tr');
-            tr.innerHTML=`
-              <td>
-                <div><b>${row.id}</b> <span class="pill ${row.status==='approved'?'ok':row.status==='pending'?'warn':row.status==='rejected'?'bad':''}" data-pill="rib">${row.status}</span></div>
-                <div class="muted">${row.created_at?new Date(row.created_at).toLocaleString():''}</div>
-              </td>
-              <td><div><b>${(ref.first_name||'')+' '+(ref.last_name||'')}</b></div><div class="muted">${ref.email||''}</div><div class="muted">Code: ${ref.referral_code||''}</div></td>
-              <td><div><b>${maskIban(row.iban_masked||row.iban||'')}</b></div><div class="muted">${row.bic?('BIC: '+row.bic):''}</div><div class="muted">${row.holder_name?('Titulaire: '+row.holder_name):''}</div></td>
-              <td>${row.doc_path?`<button class="btn-ghost" data-proof="${row.id}">Voir justificatif</button>`:'<span class="muted">—</span>'}</td>
-              <td>
-                ${row.status==='approved'
-                  ? '<button class="btn-done" disabled>Validé ✓</button>'
-                  : `<button class="btn-ghost" data-rib="approved" data-id="${row.id}">Valider</button>`}
-                ${row.status==='rejected'
-                  ? '<button class="btn-done" disabled>Rejeté ✓</button>'
-                  : `<button class="btn-red" data-rib="rejected" data-id="${row.id}">Rejeter</button>`}
-              </td>`;
-            ribTbody.appendChild(tr);
+            const ref = row.referrer || {};
+const tr  = document.createElement('tr');
+
+const statusPill =
+  '<span class="pill ' +
+  (row.status === 'approved' ? 'ok' : row.status === 'pending' ? 'warn' : row.status === 'rejected' ? 'bad' : '') +
+  '" data-pill="rib">' + (row.status || '') + '</span>';
+
+const proofCell = row.doc_path
+  ? '<button class="btn-ghost" data-proof="' + row.id + '">Voir justificatif</button>'
+  : '<span class="muted">—</span>';
+
+const approveBtn = (row.status === 'approved')
+  ? '<button class="btn-done" disabled>Validé ✓</button>'
+  : '<button class="btn-ghost" data-rib="approved" data-id="' + row.id + '">Valider</button>';
+
+const rejectBtn = (row.status === 'rejected')
+  ? '<button class="btn-done" disabled>Rejeté ✓</button>'
+  : '<button class="btn-red" data-rib="rejected" data-id="' + row.id + '">Rejeter</button>';
+
+tr.innerHTML =
+  '<td>' +
+    '<div><b>' + row.id + '</b> ' + statusPill + '</div>' +
+    '<div class="muted">' + (row.created_at ? new Date(row.created_at).toLocaleString() : '') + '</div>' +
+  '</td>' +
+  '<td>' +
+    '<div><b>' + ((ref.first_name||'') + ' ' + (ref.last_name||'')) + '</b></div>' +
+    '<div class="muted">' + (ref.email||'') + '</div>' +
+    '<div class="muted">Code: ' + (ref.referral_code||'') + '</div>' +
+  '</td>' +
+  '<td>' +
+    '<div><b>' + maskIban(row.iban_masked||row.iban||'') + '</b></div>' +
+    '<div class="muted">' + (row.bic ? ('BIC: ' + row.bic) : '') + '</div>' +
+    '<div class="muted">' + (row.holder_name ? ('Titulaire: ' + row.holder_name) : '') + '</div>' +
+  '</td>' +
+  '<td>' + proofCell + '</td>' +
+  '<td>' + approveBtn + ' ' + rejectBtn + '</td>';
+
+ribTbody.appendChild(tr);
+
           }
         }
         ribOffset=j.nextOffset ?? (ribOffset+ribLastBatch.length);
