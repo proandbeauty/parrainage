@@ -1,3 +1,9 @@
+const { ensureAdmin } = require('./_auth');
+
+export default async function handler(req, res) {
+  const ok = ensureAdmin(req, res);      // ⬅️ ajoute ces 2 lignes en tête
+  if (ok !== true) return;
+
 // /api/admin/referrers-update.js
 const { getAdminClient, assertAdmin } = require('../_lib/supabaseAdmin');
 
