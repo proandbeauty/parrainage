@@ -1,31 +1,33 @@
-const { ensureAdmin } = require('./_auth');
-
-export default async function handler(req, res) {
-  const ok = ensureAdmin(req, res);      // ⬅️ ajoute ces 2 lignes en tête
-  if (ok !== true) return;
-
-// /api/admin/ribs-set-status.js
+// api/admin/ribs-set-status.js
 export const config = { runtime: 'nodejs' };
-import { createClient } from '@supabase/supabase-js';
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY;
-const ADMIN_TOKEN  = process.env.ADMIN_TOKEN || '';
+
+const { ensureAdmin }  = require('./_auth');
+const { createClient } = require('@supabase/supabase-js');
+
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || '';
+
 const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
-function bad(res, msg, code=400, detail=''){ return res.status(code).json({ error: msg, detail }); }
-function authed(req){ const t=String(req.headers.authorization||'').replace(/^Bearer\s+/i,'').trim(); return t && t===ADMIN_TOKEN; }
+function bad(res, msg, code = 400, detail = '') {
+  return res.status(code).json({ error: msg, detail });
+}
 
-export default async function handler(req, res){
-  try{
-    if(req.method!=='POST') return bad(res,'Method Not Allowed',405);
-    if(!authed(req))        return bad(res,'Unauthorized',401);
+export default async function handler(req, res) {
+  // Auth admin (via header Authorization: Bearer <ADMIN_TOKEN> ou x-admin-token)
+  if (ensureAdmin(req, res) !== true) return;
+
+  try {
+    if (req.method !== 'POST') return bad(res, 'Method Not Allowed', 405);
+
     const { id, status } = req.body || {};
-    if(!id || !status) return bad(res,'id et status requis');
+    if (!id || !status) return bad(res, 'id et status requis', 400);
 
     let newStatus = String(status).toLowerCase();
-    if(newStatus==='validated') newStatus='approved';
-    if(!['approved','rejected','pending'].includes(newStatus))
-      return bad(res,'Statut invalide',400);
+    if (newStatus === 'validated') newStatus = 'approved';
+    if (!['approved', 'rejected', 'pending'].includes(newStatus)) {
+      return bad(res, 'Statut invalide', 400);
+    }
 
     const { data, error } = await supabase
       .from('bank_accounts')
@@ -34,14 +36,15 @@ export default async function handler(req, res){
       .select('id,status')
       .maybeSingle();
 
-    if(error){
+    if (error) {
       console.error('[ribs-set-status] supabase error:', error);
       return bad(res, 'Erreur base de données (maj RIB).', 500, error.message || String(error));
     }
-    if(!data) return bad(res,'RIB introuvable',404);
-    return res.status(200).json({ ok:true, id:data.id, status:data.status });
-  }catch(e){
+    if (!data) return bad(res, 'RIB introuvable', 404);
+
+    return res.status(200).json({ ok: true, id: data.id, status: data.status });
+  } catch (e) {
     console.error('[ribs-set-status] server error:', e);
-    return bad(res,'Erreur serveur (maj RIB).',500, e.message || String(e));
+    return bad(res, 'Erreur serveur (maj RIB).', 500, e.message || String(e));
   }
 }

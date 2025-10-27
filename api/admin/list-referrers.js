@@ -1,47 +1,38 @@
-const { ensureAdmin } = require('./_auth');
-
-export default async function handler(req, res) {
-  const ok = ensureAdmin(req, res);      // ⬅️ ajoute ces 2 lignes en tête
-  if (ok !== true) return;
-
+// api/admin/list-referrers.js
 export const config = { runtime: 'nodejs' };
 
-import { createClient } from '@supabase/supabase-js';
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY;
-const ADMIN_TOKEN  = process.env.ADMIN_TOKEN || '';
-const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+const { ensureAdmin }  = require('./_auth');
+const { createClient } = require('@supabase/supabase-js');
 
-const ok  = (res, body) => res.status(200).json(body);
-const bad = (res, msg, code=400) => res.status(code).json({ error: msg });
-const authed = (req) => String(req.headers.authorization||'').replace(/^Bearer\s+/i,'').trim() === ADMIN_TOKEN;
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || '';
+const supabase     = createClient(SUPABASE_URL, SERVICE_KEY);
 
-/**
- * Hypothèses:
- * - Table "referrers": id, first_name, last_name, email, referral_code, created_at, updated_at
- * - Table "bank_accounts": referrer_id, status ('approved'/'pending'/'rejected'), ...
- * On left-join côté SQL via une vue ou on fait en deux temps ici.
- */
-export default async function handler(req, res){
-  try{
-    if(req.method!=='GET') return bad(res,'Method Not Allowed',405);
-    if(!authed(req))       return bad(res,'Unauthorized',401);
+const ok  = (res, body)            => res.status(200).json(body);
+const bad = (res, msg, code = 400) => res.status(code).json({ error: msg });
 
-    const limit  = Math.min(parseInt(req.query.limit||'100',10), 500);
-    const offset = parseInt(req.query.offset||'0',10);
-    const search = String(req.query.search||'').trim();
-    const rib    = String(req.query.rib||'all').toLowerCase(); // approved|pending|rejected|missing|all
-    const dateFrom = String(req.query.date_from||'').trim();
-    const dateTo   = String(req.query.date_to||'').trim();
+export default async function handler(req, res) {
+  // Auth: Authorization: Bearer <ADMIN_TOKEN>
+  if (ensureAdmin(req, res) !== true) return;
+
+  try {
+    if (req.method !== 'GET') return bad(res, 'Method Not Allowed', 405);
+
+    const limit    = Math.min(parseInt(req.query.limit  || '100', 10), 500);
+    const offset   = parseInt(req.query.offset || '0', 10);
+    const search   = String(req.query.search || '').trim();
+    const rib      = String(req.query.rib || 'all').toLowerCase();   // approved|pending|rejected|missing|all
+    const dateFrom = String(req.query.date_from || '').trim();
+    const dateTo   = String(req.query.date_to   || '').trim();
 
     let q = supabase
       .from('referrers')
-      .select(`id, first_name, last_name, email, referral_code, created_at, updated_at`)
-      .order('updated_at',{ascending:false})
+      .select('id, first_name, last_name, email, referral_code, created_at, updated_at')
+      .order('updated_at', { ascending: false })
       .limit(2000);
 
-    if(search){
-      const term = search.replace(/[%,"']/g,'');
+    if (search) {
+      const term = search.replace(/[%,"']/g, '');
       q = q.or([
         `first_name.ilike.%${term}%`,
         `last_name.ilike.%${term}%`,
@@ -49,27 +40,28 @@ export default async function handler(req, res){
         `referral_code.ilike.%${term}%`
       ].join(','));
     }
-    if(dateFrom) q = q.gte('created_at', dateFrom);
-    if(dateTo)   q = q.lte('created_at', dateTo+'T23:59:59');
+    if (dateFrom) q = q.gte('created_at', dateFrom);
+    if (dateTo)   q = q.lte('created_at', `${dateTo}T23:59:59`);
 
     const { data: refs, error } = await q;
-    if(error){
+    if (error) {
       console.error('Supabase (referrers) error:', error);
-      return bad(res,'Erreur base de données (bénéficiaires).');
+      return bad(res, 'Erreur base de données (bénéficiaires).');
     }
 
-    // RIB statuses (map)
+    // récup statut RIB
     const { data: ribs, error: e2 } = await supabase
       .from('bank_accounts')
       .select('referrer_id, status, updated_at');
-    if(e2){
+    if (e2) {
       console.error('Supabase (ribs for referrers) error:', e2);
-      return bad(res,'Erreur lecture RIB (bénéficiaires).');
+      return bad(res, 'Erreur lecture RIB (bénéficiaires).');
     }
-    const map = new Map();
-    ribs?.forEach(r=> map.set(r.referrer_id, r.status || 'pending'));
 
-    let rows = (refs||[]).map(r=>({
+    const map = new Map();
+    (ribs || []).forEach(r => map.set(r.referrer_id, r.status || 'pending'));
+
+    let rows = (refs || []).map(r => ({
       id: r.id,
       first_name: r.first_name,
       last_name: r.last_name,
@@ -79,15 +71,14 @@ export default async function handler(req, res){
       rib_status: map.get(r.id) || 'missing'
     }));
 
-    if(rib && rib!=='all'){
-      rows = rows.filter(x => x.rib_status === rib);
-    }
+    if (rib && rib !== 'all') rows = rows.filter(x => x.rib_status === rib);
 
-    const sliced = rows.slice(offset, offset+limit);
+    const sliced = rows.slice(offset, offset + limit);
     const nextOffset = offset + sliced.length;
-    return ok(res,{ items: sliced, nextOffset });
-  }catch(e){
+    return ok(res, { items: sliced, nextOffset });
+
+  } catch (e) {
     console.error('Server (list-referrers) error:', e);
-    return bad(res,'Erreur serveur (bénéficiaires).',500);
+    return bad(res, 'Erreur serveur (bénéficiaires).', 500);
   }
 }

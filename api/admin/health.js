@@ -1,41 +1,49 @@
-const { ensureAdmin } = require('./_auth');
+// api/admin/health.js
+// ─────────────────────────────────────────────────────────────
+export const config = { runtime: 'nodejs' }; // force Node (pas Edge)
+
+const { readAdminToken } = require('./_auth');
+const { createClient } = require('@supabase/supabase-js');
 
 export default async function handler(req, res) {
-  const ok = ensureAdmin(req, res);      // ⬅️ ajoute ces 2 lignes en tête
-  if (ok !== true) return;
+  // 1) Vérif réception du header + présence du token env
+  const gotToken   = readAdminToken(req);
+  const envToken   = process.env.ADMIN_TOKEN || process.env.NEXT_PUBLIC_ADMIN_TOKEN || '';
+  const SUPA_URL   = process.env.SUPABASE_URL || '';
+  const SERVICEKEY = process.env.SUPABASE_SERVICE_KEY || '';
 
-// /api/admin/health.js
-export const config = { runtime: 'nodejs' };
-import { createClient } from '@supabase/supabase-js';
-
-export default async function handler(req, res) {
-  const SUPABASE_URL = process.env.SUPABASE_URL || '';
-  const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || '';
-  const ADMIN_TOKEN  = process.env.ADMIN_TOKEN || '';
-
-  const env = {
-    has_SUPABASE_URL: !!SUPABASE_URL,
-    has_SERVICE_KEY:  !!SERVICE_KEY,
-    has_ADMIN_TOKEN:  !!ADMIN_TOKEN
+  const diag = {
+    ok: false,
+    receivedHeader: Boolean(gotToken),
+    headerLen: gotToken ? gotToken.length : 0,
+    envLen: envToken.length,
+    match: Boolean(gotToken && envToken && gotToken === envToken),
+    has_SUPABASE_URL:   Boolean(SUPA_URL),
+    has_SERVICE_KEY:    Boolean(SERVICEKEY),
+    where: 'init'
   };
 
-  // Pas de secrets dans la réponse, juste des booléens
-  if (!env.has_SUPABASE_URL || !env.has_SERVICE_KEY) {
-    return res.status(500).json({ ok:false, env, where: 'env' });
+  // 2) Si variables manquantes → on retourne le diag
+  if (!diag.has_SUPABASE_URL || !diag.has_SERVICE_KEY) {
+    diag.where = 'env';
+    return res.status(200).json(diag);
   }
 
+  // 3) Ping Supabase (sélect simple)
   try {
-    const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
-    const { data, error } = await supabase.rpc('now'); // marche même sans RPC, sinon fallback
+    const supabase = createClient(SUPA_URL, SERVICEKEY);
+    const { error } = await supabase.from('referrers').select('id').limit(1);
     if (error) {
-      // fallback: select simple
-      const test = await supabase.from('referrers').select('id').limit(1);
-      if (test.error) {
-        return res.status(500).json({ ok:false, env, where:'supabase', detail:test.error.message });
-      }
+      diag.where  = 'supabase';
+      diag.detail = error.message;
+      return res.status(200).json(diag);
     }
-    return res.status(200).json({ ok:true, env, where:'ok' });
+    diag.ok    = true;
+    diag.where = 'ok';
+    return res.status(200).json(diag);
   } catch (e) {
-    return res.status(500).json({ ok:false, env, where:'exception', detail: String(e.message || e) });
+    diag.where  = 'exception';
+    diag.detail = String(e?.message || e);
+    return res.status(200).json(diag);
   }
 }

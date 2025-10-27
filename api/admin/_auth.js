@@ -1,9 +1,3 @@
-const { ensureAdmin } = require('./_auth');
-
-export default async function handler(req, res) {
-  const ok = ensureAdmin(req, res);      // ⬅️ ajoute ces 2 lignes en tête
-  if (ok !== true) return;
-
 // api/admin/_auth.js
 function getHeader(req, key) {
     // Edge runtime (Request): req.headers.get()

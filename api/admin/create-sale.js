@@ -1,15 +1,17 @@
-const { ensureAdmin } = require('./_auth');
+// api/admin/create-sale.js
+export const config = { runtime: 'nodejs' };
+
+const { ensureAdmin }  = require('./_auth');
+const { createClient } = require('@supabase/supabase-js');
+
+const SUPABASE_URL        = process.env.SUPABASE_URL || '';
+const SUPABASE_SERVICE_KEY= process.env.SUPABASE_SERVICE_KEY || '';
+const supa                = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 export default async function handler(req, res) {
-  const ok = ensureAdmin(req, res);      // ⬅️ ajoute ces 2 lignes en tête
-  if (ok !== true) return;
-
-// /api/admin/create-sale.js
-const { getAdminClient, assertAdmin } = require('../_lib/supabaseAdmin');
-
-module.exports = async (req, res) => {
-  if (!assertAdmin(req, res)) return;
-  if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+  // Auth via Authorization: Bearer <ADMIN_TOKEN>
+  if (ensureAdmin(req, res) !== true) return;
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
   const {
     order_id,
@@ -27,15 +29,12 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const supa = getAdminClient();
-
-    // 1) retrouver le bénéficiaire par code
+    // 1) retrouver le bénéficiaire par code (⚠️ colonne cohérente avec le reste du projet)
     const { data: ref, error: e1 } = await supa
       .from('referrers')
-      .select('id, code')
-      .eq('code', referral_code)
+      .select('id, referral_code')
+      .eq('referral_code', referral_code)
       .single();
-
     if (e1 || !ref) return res.status(404).json({ error: 'code parrain introuvable' });
 
     // 2) insérer la vente
@@ -56,14 +55,13 @@ module.exports = async (req, res) => {
       .insert(toInsert)
       .select('id')
       .single();
-
     if (e2) return res.status(400).json({ error: e2.message });
 
-    // 3) Ici, si tu as une RPC/trigger pour commissions, appelle-la (optionnel)
+    // 3) (optionnel) RPC/trigger commissions
     // await supa.rpc('compute_commissions_for_sale', { sale_id_input: sale.id });
 
-    res.json({ ok: true, sale_id: sale.id });
+    return res.json({ ok: true, sale_id: sale.id });
   } catch (e) {
-    res.status(500).json({ error: String(e.message || e) });
+    return res.status(500).json({ error: String(e.message || e) });
   }
-};
+}
