@@ -1,29 +1,27 @@
 // api/admin/list-referrers.js
-export const config = { runtime: 'nodejs' };
-
-const { ensureAdmin }  = require('./_auth');
+const { ensureAdmin } = require('./_auth');
 const { createClient } = require('@supabase/supabase-js');
 
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || '';
+module.exports.config = { runtime: 'nodejs' };
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY;
 const supabase     = createClient(SUPABASE_URL, SERVICE_KEY);
 
-const ok  = (res, body)            => res.status(200).json(body);
+const ok  = (res, body) => res.status(200).json(body);
 const bad = (res, msg, code = 400) => res.status(code).json({ error: msg });
 
-export default async function handler(req, res) {
-  // Auth: Authorization: Bearer <ADMIN_TOKEN>
-  if (ensureAdmin(req, res) !== true) return;
-
+module.exports = async (req, res) => {
   try {
     if (req.method !== 'GET') return bad(res, 'Method Not Allowed', 405);
+    if (ensureAdmin(req, res) !== true) return;
 
     const limit    = Math.min(parseInt(req.query.limit  || '100', 10), 500);
     const offset   = parseInt(req.query.offset || '0', 10);
-    const search   = String(req.query.search || '').trim();
-    const rib      = String(req.query.rib || 'all').toLowerCase();   // approved|pending|rejected|missing|all
-    const dateFrom = String(req.query.date_from || '').trim();
-    const dateTo   = String(req.query.date_to   || '').trim();
+    const search   = String(req.query.search   || '').trim();
+    const rib      = String(req.query.rib      || 'all').toLowerCase(); // approved|pending|rejected|missing|all
+    const dateFrom = String(req.query.date_from|| '').trim();
+    const dateTo   = String(req.query.date_to  || '').trim();
 
     let q = supabase
       .from('referrers')
@@ -46,16 +44,15 @@ export default async function handler(req, res) {
     const { data: refs, error } = await q;
     if (error) {
       console.error('Supabase (referrers) error:', error);
-      return bad(res, 'Erreur base de données (bénéficiaires).');
+      return bad(res, 'Erreur base de données (bénéficiaires).', 500);
     }
 
-    // récup statut RIB
     const { data: ribs, error: e2 } = await supabase
       .from('bank_accounts')
       .select('referrer_id, status, updated_at');
     if (e2) {
       console.error('Supabase (ribs for referrers) error:', e2);
-      return bad(res, 'Erreur lecture RIB (bénéficiaires).');
+      return bad(res, 'Erreur lecture RIB (bénéficiaires).', 500);
     }
 
     const map = new Map();
@@ -75,10 +72,10 @@ export default async function handler(req, res) {
 
     const sliced = rows.slice(offset, offset + limit);
     const nextOffset = offset + sliced.length;
-    return ok(res, { items: sliced, nextOffset });
 
+    return ok(res, { items: sliced, nextOffset });
   } catch (e) {
     console.error('Server (list-referrers) error:', e);
     return bad(res, 'Erreur serveur (bénéficiaires).', 500);
   }
-}
+};

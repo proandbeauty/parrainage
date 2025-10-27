@@ -1,9 +1,7 @@
-// api/admin/_auth.js
+// api/admin/_auth.js (CommonJS)
 function getHeader(req, key) {
-    // Edge runtime (Request): req.headers.get()
     if (req?.headers?.get) return req.headers.get(key) || req.headers.get(key.toLowerCase());
-    // Node runtime (Next/Vercel API): req.headers['x-...']
-    if (req?.headers) return req.headers[key] || req.headers[key.toLowerCase()];
+    if (req?.headers)      return req.headers[key]     || req.headers[key.toLowerCase()];
     return undefined;
   }
   
@@ -15,18 +13,14 @@ function getHeader(req, key) {
   }
   
   function ensureAdmin(req, res) {
-    const given = readAdminToken(req);
+    const given    = readAdminToken(req);
     const expected = process.env.ADMIN_TOKEN || process.env.NEXT_PUBLIC_ADMIN_TOKEN;
-  
     if (!expected) {
       console.error('[ADMIN] Missing env ADMIN_TOKEN');
-      if (res) return res.status(500).json({ error: 'Server misconfigured' });
-      throw new Error('ADMIN_TOKEN missing');
+      return res ? res.status(500).json({ error: 'Server misconfigured' }) : false;
     }
-  
     if (!given || given !== expected) {
-      if (res) return res.status(401).json({ error: 'Unauthorized' });
-      throw new Error('Unauthorized');
+      return res ? res.status(401).json({ error: 'Unauthorized' }) : false;
     }
     return true;
   }
