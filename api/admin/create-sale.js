@@ -22,8 +22,8 @@ export default async function handler(req, res) {
 
     const { data: ref, error: e1 } = await supa
       .from('referrers')
-      .select('id, code')
-      .eq('code', referral_code)
+      .select('id, referral_code')
+      .eq('referral_code', referral_code)
       .single();
 
     if (e1 || !ref) return res.status(404).json({ error:'code parrain introuvable' });
