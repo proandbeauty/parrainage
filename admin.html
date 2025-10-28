@@ -195,8 +195,8 @@
               <th>Téléphone</th>
               <th>Marque</th>
               <th>Code</th>
-              <th>Rôle</th>
-              <th>Code parrain</th>
+              <th>Rôle</th>           <!-- NEW -->
+              <th>Code parrain</th>   <!-- NEW -->
               <th>Statut RIB</th>
               <th>Dernière activité</th>
               <th>Actions</th>
@@ -902,18 +902,18 @@
     ? 'bad'
     : '';
 
-  tr.innerHTML = `
-    <td><b>${(ref.first_name || '')} ${(ref.last_name || '')}</b></td>
-    <td>${ref.email || ''}</td>
-    <td>${ref.phone || '-'}</td>
-    <td>${ref.brand || '-'}</td>
-    <td><code>${ref.code || ''}</code></td>
-    <td>${ref.role || '-'}</td>
-    <td>${ref.parent_code || '-'}</td>
-    <td><span class="pill ${ribPill}">${ref.rib_status || 'missing'}</span></td>
-    <td class="muted">${ref.last_activity ? new Date(ref.last_activity).toLocaleDateString() : ''}</td>
-    <td><button class="btn-ghost" data-edit-ref="${ref.id}">Modifier</button></td>
-  `;
+    tr.innerHTML = `
+  <td><b>${(ref.first_name || '') + ' ' + (ref.last_name || '')}</b></td>
+  <td>${ref.email || ''}</td>
+  <td>${ref.phone || '-'}</td>
+  <td>${ref.brand || '-'}</td>
+  <td><code>${ref.code || ''}</code></td>
+  <td>${ref.role || '-'}</td>                          <!-- NEW -->
+  <td>${ref.role === 'filleul' ? (ref.parent_code || '-') : '-'}</td> <!-- NEW -->
+  <td><span class="pill ${ribPill}">${ref.rib_status || 'missing'}</span></td>
+  <td class="muted">${ref.last_activity ? new Date(ref.last_activity).toLocaleDateString() : ''}</td>
+  <td><button class="btn-ghost" data-edit-ref="${ref.id}">Modifier</button></td>
+`;
   refsTbody.appendChild(tr);
 }
         }
@@ -994,7 +994,10 @@ $('#refs_export')?.addEventListener('click', async () => {
     if (!rows.length) { showToast('Aucune donnée à exporter', false); return; }
 
     // En-têtes CSV (ajout Rôle + Code parrain)
-    const head = ['Commercial','Email','Téléphone','Marque','Code','Rôle','Code parrain','Statut RIB','Dernière activité'];
+    const head = [
+  'Commercial','Email','Téléphone','Marque','Code',
+  'Rôle','Code parrain','Statut RIB','Dernière activité'
+];
 const lines = [head.join(';')];
 
 rows.forEach(x => {
@@ -1005,7 +1008,7 @@ rows.forEach(x => {
     x.brand || '',
     x.code || '',
     x.role || '',
-    x.parent_code || '',
+    x.role === 'filleul' ? (x.parent_code || '') : '',
     x.rib_status || 'missing',
     x.last_activity ? new Date(x.last_activity).toLocaleString() : ''
   ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(';');
