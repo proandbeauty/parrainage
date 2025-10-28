@@ -1,4 +1,6 @@
-// api/admin/_auth.js  (CommonJS)
+// /api/admin/_auth.js  (PAS une route HTTP)
+// Ne mets surtout pas de `export default` ici.
+
 function getHeader(req, key) {
   if (req?.headers?.get) return req.headers.get(key) || req.headers.get(key.toLowerCase());
   if (req?.headers)      return req.headers[key]     || req.headers[key.toLowerCase()];
@@ -13,11 +15,10 @@ function readAdminToken(req) {
 }
 
 function ensureAdmin(req, res) {
-  const given = readAdminToken(req);
+  const given    = readAdminToken(req);
   const expected = process.env.ADMIN_TOKEN || process.env.NEXT_PUBLIC_ADMIN_TOKEN;
   if (!expected) {
-    console.error('[ADMIN] Missing env ADMIN_TOKEN');
-    if (res) return res.status(500).json({ error: 'Server misconfigured' });
+    if (res) return res.status(500).json({ error: 'Server misconfigured (ADMIN_TOKEN missing)' });
     throw new Error('ADMIN_TOKEN missing');
   }
   if (!given || given !== expected) {

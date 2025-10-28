@@ -1,14 +1,14 @@
-// api/admin/export-commissions.js  (CommonJS)
-const { ensureAdmin } = require('./_auth');
-const { createClient } = require('@supabase/supabase-js');
-
-module.exports.config = { runtime: 'nodejs' };
+export const config = { runtime: 'nodejs' };
+import { createClient } from '@supabase/supabase-js';
+import { ensureAdmin } from './_auth';
 
 const supa = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
-const csvEscape = (v) => `"${String(v??'').replace(/"/g,'""')}"`;
 
-module.exports = async (req, res) => {
-  if (ensureAdmin(req, res) !== true) return;
+const csv = (v)=>`"${String(v??'').replace(/"/g,'""')}"`;
+
+export default async function handler(req, res) {
+  const ok = ensureAdmin(req, res);
+  if (ok !== true) return;
 
   try {
     if (req.method !== 'GET') return res.status(405).json({ error:'Method Not Allowed' });
@@ -31,7 +31,7 @@ module.exports = async (req, res) => {
       'sale_id','order_id','sale_amount','sale_currency','sale_created_at',
       'beneficiary_id','first_name','last_name','email','referral_code'
     ];
-    const lines = [headers.map(csvEscape).join(',')];
+    const lines = [headers.map(csv).join(',')];
 
     for (const r of data || []) {
       lines.push([
@@ -39,16 +39,14 @@ module.exports = async (req, res) => {
         r.commission_amount, r.commission_currency,
         r.sale_id, r.order_id, r.sale_amount, r.sale_currency, r.sale_created_at,
         r.beneficiary_id, r.first_name, r.last_name, r.email, r.referral_code
-      ].map(csvEscape).join(','));
+      ].map(csv).join(','));
     }
 
-    const csv = lines.join('\r\n');
     const filename = `export-commissions-${new Date().toISOString().slice(0,10)}.csv`;
     res.setHeader('Content-Type','text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.status(200).send(csv);
+    res.setHeader('Content-Disposition',`attachment; filename="${filename}"`);
+    res.status(200).send(lines.join('\r\n'));
   } catch (e) {
-    console.error('export-commissions fatal:', e);
-    res.status(500).json({ error:'server error' });
+    res.status(500).json({ error:'server error (export-commissions)', detail:String(e?.message||e) });
   }
-};
+}

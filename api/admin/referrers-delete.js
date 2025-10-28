@@ -1,22 +1,24 @@
-// api/admin/referrers-delete.js  (CommonJS)
-const { ensureAdmin } = require('./_auth');
-const { getAdminClient } = require('../_lib/supabaseAdmin');
+export const config = { runtime: 'nodejs' };
+import { createClient } from '@supabase/supabase-js';
+import { ensureAdmin } from './_auth';
 
-module.exports.config = { runtime: 'nodejs' };
+const supa = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
-module.exports = async (req, res) => {
-  if (ensureAdmin(req, res) !== true) return;
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
-
-  const { id } = req.body || {};
-  if (!id) return res.status(400).json({ error: 'id manquant' });
+export default async function handler(req, res) {
+  const ok = ensureAdmin(req, res);
+  if (ok !== true) return;
 
   try {
-    const supa = getAdminClient();
+    if (req.method !== 'POST') return res.status(405).json({ error:'Method Not Allowed' });
+
+    const { id } = req.body || {};
+    if (!id) return res.status(400).json({ error:'id manquant' });
+
     const { error } = await supa.from('referrers').delete().eq('id', id);
-    if (error) return res.status(400).json({ error: error.message });
-    res.json({ ok: true });
+    if (error) return res.status(400).json({ error:error.message });
+
+    return res.status(200).json({ ok:true });
   } catch (e) {
-    res.status(500).json({ error: String(e.message || e) });
+    return res.status(500).json({ error:'Server error (referrers-delete)', detail:String(e?.message||e) });
   }
-};
+}
