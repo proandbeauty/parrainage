@@ -101,6 +101,7 @@
           <button id="comm_export" class="btn-ghost">Exporter CSV</button>
           <div class="muted" id="comm_hint"></div>
         </div>
+        <div id="comm_totals" class="muted" style="margin:6px 0 8px"></div>
         <table>
           <thead>
             <tr>
@@ -359,11 +360,19 @@
         btn.classList.add('active');
         document.querySelectorAll('section[id^="tab_"]').forEach(s=>s.classList.add('hide'));
         document.getElementById(btn.dataset.tab).classList.remove('hide');
+        if (btn.dataset.tab === 'tab_comm') {
+  refreshCommissionTotals();
+}
       });
     });
 
-    $('#adm_reload')?.addEventListener('click', ()=>{ loadAll(true); });
-    admSearchEl.addEventListener('input', debounce(()=> loadAll(true), 400));
+    $('#adm_reload')?.addEventListener('click', () => {
+  loadAll(true);               // recharge tout
+  refreshCommissionTotals();   // sécurité : relance le calcul des totaux
+});
+    admSearchEl.addEventListener('input', debounce(() => {
+  loadCommissions(true);
+}, 400));
     admTokenEl.addEventListener('input', debounce(()=> loadAll(true), 300));
 
     // ===================== COMMISSIONS =====================
@@ -461,6 +470,7 @@
         commMoreBtn.disabled=!commHasMore;
         commMoreBtn.textContent=commHasMore?'Charger +':'Plus de résultats';
         commHint.textContent=`Page ${commPage-1}`;
+        await refreshCommissionTotals();
       }catch(e){ admMsg.textContent='Erreur chargement (commissions)'; console.error(e); }
     }
 
@@ -543,31 +553,114 @@
     });
 
     async function fetchAllCommissionsForExport() {
-      const out = [];
-      let page = 1, limit = 200, keep = true;
-      while (keep && page <= 500) {
-        const p = { search: admSearchEl.value.trim(), page: String(page), limit: String(limit) };
-        const r = await fetch(`/api/admin/list-commissions?${new URLSearchParams(p).toString()}`, { headers: auth() });
-        if (r.status === 400 || r.status === 404 || r.status === 422) { keep = false; break; }
-        const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Erreur liste commissions');
-        const batch = Array.isArray(j.items) ? j.items : (Array.isArray(j.rows) ? j.rows : []);
-        out.push(...batch.map(commNormalize));
-        if (j.hasMore === false || batch.length < limit) break;
-        page++;
-      }
-      if (out.length) return out;
-      let offset = 0; keep = true;
-      while (keep && offset <= 20000) {
-        const p = { search: admSearchEl.value.trim(), offset: String(offset), limit: '500' };
-        const r = await fetch(`/api/admin/list-commissions?${new URLSearchParams(p).toString()}`, { headers: auth() });
-        const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Erreur liste commissions (offset)');
-        const batch = Array.isArray(j.items) ? j.items : (Array.isArray(j.rows) ? j.rows : []);
-        out.push(...batch.map(commNormalize));
-        if (!batch.length) break;
-        offset = j.nextOffset != null ? j.nextOffset : (offset + batch.length);
-      }
-      return out;
+  const out = [];
+
+  // 👇 Paramètres communs aux 2 boucles (recherche + statut)
+  const base = { search: admSearchEl.value.trim() };
+  if (commStatusEl && commStatusEl.value !== 'all') {
+    base.status = commStatusEl.value;
+  }
+
+  // --- Boucle page/limit ---
+  let page = 1, limit = 200, keep = true;
+  while (keep && page <= 500) {
+    const p = { ...base, page: String(page), limit: String(limit) };
+    const r = await fetch(`/api/admin/list-commissions?${new URLSearchParams(p).toString()}`, { headers: auth() });
+    if (r.status === 400 || r.status === 404 || r.status === 422) { keep = false; break; }
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Erreur liste commissions');
+    const batch = Array.isArray(j.items) ? j.items : (Array.isArray(j.rows) ? j.rows : []);
+    out.push(...batch.map(commNormalize));
+    if (j.hasMore === false || batch.length < limit) break;
+    page++;
+  }
+  if (out.length) return out;
+
+  // --- Boucle offset/limit ---
+  let offset = 0;
+  keep = true;
+  while (keep && offset <= 20000) {
+    const p = { ...base, offset: String(offset), limit: '500' };
+    const r = await fetch(`/api/admin/list-commissions?${new URLSearchParams(p).toString()}`, { headers: auth() });
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Erreur liste commissions (offset)');
+    const batch = Array.isArray(j.items) ? j.items : (Array.isArray(j.rows) ? j.rows : []);
+    out.push(...batch.map(commNormalize));
+    if (!batch.length) break;
+    offset = j.nextOffset != null ? j.nextOffset : (offset + batch.length);
+  }
+  return out;
+}
+    // ====== Totaux Commissions (pour le filtre en cours) ======
+const commTotalsEl = document.getElementById('comm_totals');
+
+function fmtMoney(amount, currency = 'EUR') {
+  const n = Number(amount || 0);
+  try {
+    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(n);
+  } catch {
+    return `${n.toFixed(2)} ${currency}`;
+  }
+}
+
+async function refreshCommissionTotals() {
+  if (!commTotalsEl) return;
+  if (!token()) { commTotalsEl.textContent = ''; return; }
+
+  // Indicateur de calcul
+  commTotalsEl.textContent = 'Calcul des totaux…';
+
+  try {
+    // Récupère toutes les commissions correspondant à la recherche + statut
+    const rows = await fetchAllCommissionsForExport();
+
+    // Agrège par statut
+    const totals = {
+      pending:  { count: 0, sum: 0 },
+      approved: { count: 0, sum: 0 },
+      paid:     { count: 0, sum: 0 },
+      other:    { count: 0, sum: 0 }, // si jamais il y a d’autres statuts
+      all:      { count: 0, sum: 0 },
+    };
+    const currencies = new Set();
+
+    for (const c0 of rows) {
+      const c = c0.beneficiary || c0.sale ? c0 : { // sécurité si pas normalisé
+        amount: c0.commission_amount ?? c0.amount,
+        currency: c0.commission_currency ?? c0.currency,
+        status: c0.status
+      };
+      const cur = c.currency || 'EUR';
+      currencies.add(cur);
+
+      const amt = Number(c.amount || 0);
+      totals.all.count += 1;
+      totals.all.sum   += amt;
+
+      const key = (c.status === 'pending' || c.status === 'approved' || c.status === 'paid')
+        ? c.status : 'other';
+      totals[key].count += 1;
+      totals[key].sum   += amt;
     }
+
+    // Rendu
+    const currency = currencies.size === 1 ? [...currencies][0] : 'EUR';
+    const mixed = currencies.size > 1;
+
+    commTotalsEl.innerHTML = rows.length === 0
+      ? 'Aucune commission pour le filtre en cours.'
+      : [
+          `<b>Totaux filtrés</b> : ${totals.all.count} commissions`,
+          `• <b>En attente</b> : ${totals.pending.count} (${fmtMoney(totals.pending.sum, currency)})`,
+          `• <b>Approuvées</b> : ${totals.approved.count} (${fmtMoney(totals.approved.sum, currency)})`,
+          `• <b>Payées</b> : ${totals.paid.count} (${fmtMoney(totals.paid.sum, currency)})`,
+          `• <b>Total</b> : ${fmtMoney(totals.all.sum, currency)}`
+        ].join('   |   ')
+        + (mixed ? ' <span class="pill warn">Devises mixtes</span>' : '');
+
+  } catch (err) {
+    console.error('refreshCommissionTotals error:', err);
+    commTotalsEl.textContent = 'Impossible de calculer les totaux.';
+  }
+}
 
     // ===================== RIB =====================
     const ribTbody=$('#rib_tbody'), ribStatusEl=$('#rib_status'), ribMoreBtn=$('#rib_more'), ribExportBtn=$('#rib_export'), ribHint=$('#rib_hint');
