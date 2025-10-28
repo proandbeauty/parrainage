@@ -2,11 +2,9 @@
 const { ensureAdmin } = require('./_auth');
 const { createClient } = require('@supabase/supabase-js');
 
-module.exports.config = { runtime: 'nodejs' };
-
 const supa = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
-module.exports = async (req, res) => {
+async function handler(req, res) {
   if (ensureAdmin(req, res) !== true) return;
 
   try {
@@ -33,4 +31,7 @@ module.exports = async (req, res) => {
   } catch (e) {
     return res.status(500).json({ error:'Erreur serveur (maj RIB).', detail:String(e.message||e) });
   }
-};
+}
+
+module.exports = handler;
+module.exports.config = { runtime: 'nodejs' };
