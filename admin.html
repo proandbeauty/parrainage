@@ -104,9 +104,15 @@
         <table>
           <thead>
             <tr>
-              <th>Commission</th>
-              <th>Bénéficiaire</th>
-              <th>Vente</th>
+              <th>Commercial</th>
+              <th>Email</th>
+              <th>Téléphone</th>
+              <th>Marque</th>
+              <th>Code</th>
+              <th>Rôle</th>
+              <th>Code parrain</th>
+              <th>Statut RIB</th>
+              <th>Dernière activité</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -899,14 +905,12 @@
               <td>${ref.phone || '-'}</td>
               <td>${ref.brand || '-'}</td>
               <td><code>${ref.code || ''}</code></td>
+              <td>${ref.role || '-'}</td>
+              <td>${ref.role === 'filleul' ? (ref.parent_code || '-') : '-'}</td>
               <td><span class="pill ${ribPill}">${ref.rib_status || 'missing'}</span></td>
               <td class="muted">${ref.last_activity ? new Date(ref.last_activity).toLocaleDateString() : ''}</td>
-              <td>
-                <button class="btn-ghost"
-                        data-edit-ref='${encodeURIComponent(JSON.stringify(ref))}'>
-                  Modifier
-                </button>
-              </td>            `;
+              <td><button class="btn-ghost" data-edit-ref="${ref.id}">Modifier</button></td>
+            `;
             refsTbody.appendChild(tr);
           }
         }
@@ -969,54 +973,61 @@
       }
     });
 
-    // EXPORT CSV BENEFICIAIRES (implémenté)
-    $('#refs_export')?.addEventListener('click', async () => {
-      try{
-        const p = {
-          limit: '10000',
-          offset: '0'
-        };
-        if (refsRib.value !== 'all') p.rib = refsRib.value;
-        if (refsFrom.value) p.date_from = refsFrom.value;
-        if (refsTo.value) p.date_to = refsTo.value;
-        const q = (refsQ.value || admSearchEl.value || '').trim();
-        if (q) p.search = q;
+// EXPORT CSV BENEFICIAIRES (implémenté)
+$('#refs_export')?.addEventListener('click', async () => {
+  try {
+    const p = { limit: '10000', offset: '0' };
+    if (refsRib.value !== 'all') p.rib = refsRib.value;
+    if (refsFrom.value) p.date_from = refsFrom.value;
+    if (refsTo.value)   p.date_to   = refsTo.value;
+    const q = (refsQ.value || admSearchEl.value || '').trim();
+    if (q) p.search = q;
 
-        const r = await fetch(`/api/admin/list-referrers?${new URLSearchParams(p).toString()}`, { headers: auth() });
-        const j = await r.json();
-        if (!r.ok) { showToast(j.error || 'Export impossible', false); return; }
+    const r = await fetch(`/api/admin/list-referrers?${new URLSearchParams(p).toString()}`, { headers: auth() });
+    const j = await r.json();
+    if (!r.ok) { showToast(j.error || 'Export impossible', false); return; }
 
-        const rows = Array.isArray(j.items) ? j.items : [];
-        if (!rows.length) { showToast('Aucune donnée à exporter', false); return; }
+    const rows = Array.isArray(j.items) ? j.items : [];
+    if (!rows.length) { showToast('Aucune donnée à exporter', false); return; }
 
-        const head = ['Commercial','Email','Téléphone','Marque','Code','Statut RIB','Dernière activité'];
-        const lines = [head.join(';')];
+    // En-têtes CSV (ajout Rôle + Code parrain)
+    const head  = ['Commercial','Email','Téléphone','Marque','Code','Rôle','Code parrain','Statut RIB','Dernière activité'];
+    const lines = [head.join(';')];
 
-        rows.forEach(x => {
-          const line = [
-            `${(x.first_name||'')} ${(x.last_name||'')}`.trim(),
-            x.email || '',
-            x.phone || '',
-            x.brand || '',
-            x.code || '',
-            x.rib_status || 'missing',
-            x.last_activity ? new Date(x.last_activity).toLocaleString() : ''
-          ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(';');
-          lines.push(line);
-        });
+    for (const x of rows) {
+      // Compat : si l’API n’a pas encore role/parent_code, on déduit le rôle du parent_code
+      const role = x.role || (x.parent_code ? 'filleul' : 'parrain');
+      const parentCodeOut = role === 'filleul' ? (x.parent_code || '') : '';
 
-        const csv = '\uFEFF' + lines.join('\r\n');
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `export-beneficiaires-${todayStr()}.csv`;
-        document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
-        showToast('Export bénéficiaires OK', true);
-      }catch(e){
-        console.error(e);
-        showToast('Export bénéficiaires impossible', false);
-      }
-    });
+      const line = [
+        `${(x.first_name||'')} ${(x.last_name||'')}`.trim(),
+        x.email || '',
+        x.phone || '',
+        x.brand || '',
+        x.code || '',
+        role,
+        parentCodeOut,
+        x.rib_status || 'missing',
+        x.last_activity ? new Date(x.last_activity).toLocaleString() : ''
+      ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(';');
+
+      lines.push(line);
+    }
+
+    const csv  = '\uFEFF' + lines.join('\r\n'); // BOM pour Excel
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = `export-beneficiaires-${todayStr()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(a.href);
+    a.remove();
+  } catch (e) {
+    console.error(e);
+    showToast('Export impossible', false);
+  }
+});
 
     function loadAll(reset) {
       loadCommissions(reset);
