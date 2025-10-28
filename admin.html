@@ -104,15 +104,9 @@
         <table>
           <thead>
             <tr>
-              <th>Commercial</th>
-              <th>Email</th>
-              <th>Téléphone</th>
-              <th>Marque</th>
-              <th>Code</th>
-              <th>Rôle</th>
-              <th>Code parrain</th>
-              <th>Statut RIB</th>
-              <th>Dernière activité</th>
+              <th>Commission</th>
+              <th>Bénéficiaire</th>
+              <th>Vente</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -201,6 +195,8 @@
               <th>Téléphone</th>
               <th>Marque</th>
               <th>Code</th>
+              <th>Rôle</th>
+              <th>Code parrain</th>
               <th>Statut RIB</th>
               <th>Dernière activité</th>
               <th>Actions</th>
@@ -897,22 +893,29 @@
           refsTbody.innerHTML = '<tr><td colspan="8" class="muted">Aucun bénéficiaire.</td></tr>';
         } else {
           for (const ref of items) {
-            const tr = document.createElement('tr');
-            const ribPill = ref.rib_status === 'approved' ? 'ok' : ref.rib_status === 'pending' ? 'warn' : ref.rib_status === 'rejected' ? 'bad' : '';
-            tr.innerHTML = `
-              <td><b>${(ref.first_name || '') + ' ' + (ref.last_name || '')}</b></td>
-              <td>${ref.email || ''}</td>
-              <td>${ref.phone || '-'}</td>
-              <td>${ref.brand || '-'}</td>
-              <td><code>${ref.code || ''}</code></td>
-              <td>${ref.role || '-'}</td>
-              <td>${ref.role === 'filleul' ? (ref.parent_code || '-') : '-'}</td>
-              <td><span class="pill ${ribPill}">${ref.rib_status || 'missing'}</span></td>
-              <td class="muted">${ref.last_activity ? new Date(ref.last_activity).toLocaleDateString() : ''}</td>
-              <td><button class="btn-ghost" data-edit-ref="${ref.id}">Modifier</button></td>
-            `;
-            refsTbody.appendChild(tr);
-          }
+  const tr = document.createElement('tr');
+  const ribPill = ref.rib_status === 'approved'
+    ? 'ok'
+    : ref.rib_status === 'pending'
+    ? 'warn'
+    : ref.rib_status === 'rejected'
+    ? 'bad'
+    : '';
+
+  tr.innerHTML = `
+    <td><b>${(ref.first_name || '')} ${(ref.last_name || '')}</b></td>
+    <td>${ref.email || ''}</td>
+    <td>${ref.phone || '-'}</td>
+    <td>${ref.brand || '-'}</td>
+    <td><code>${ref.code || ''}</code></td>
+    <td>${ref.role || '-'}</td>
+    <td>${ref.parent_code || '-'}</td>
+    <td><span class="pill ${ribPill}">${ref.rib_status || 'missing'}</span></td>
+    <td class="muted">${ref.last_activity ? new Date(ref.last_activity).toLocaleDateString() : ''}</td>
+    <td><button class="btn-ghost" data-edit-ref="${ref.id}">Modifier</button></td>
+  `;
+  refsTbody.appendChild(tr);
+}
         }
         refsOffset = j.nextOffset ?? (refsOffset + items.length);
       } catch (e) {
@@ -991,28 +994,23 @@ $('#refs_export')?.addEventListener('click', async () => {
     if (!rows.length) { showToast('Aucune donnée à exporter', false); return; }
 
     // En-têtes CSV (ajout Rôle + Code parrain)
-    const head  = ['Commercial','Email','Téléphone','Marque','Code','Rôle','Code parrain','Statut RIB','Dernière activité'];
-    const lines = [head.join(';')];
+    const head = ['Commercial','Email','Téléphone','Marque','Code','Rôle','Code parrain','Statut RIB','Dernière activité'];
+const lines = [head.join(';')];
 
-    for (const x of rows) {
-      // Compat : si l’API n’a pas encore role/parent_code, on déduit le rôle du parent_code
-      const role = x.role || (x.parent_code ? 'filleul' : 'parrain');
-      const parentCodeOut = role === 'filleul' ? (x.parent_code || '') : '';
-
-      const line = [
-        `${(x.first_name||'')} ${(x.last_name||'')}`.trim(),
-        x.email || '',
-        x.phone || '',
-        x.brand || '',
-        x.code || '',
-        role,
-        parentCodeOut,
-        x.rib_status || 'missing',
-        x.last_activity ? new Date(x.last_activity).toLocaleString() : ''
-      ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(';');
-
-      lines.push(line);
-    }
+rows.forEach(x => {
+  const line = [
+    `${(x.first_name||'')} ${(x.last_name||'')}`.trim(),
+    x.email || '',
+    x.phone || '',
+    x.brand || '',
+    x.code || '',
+    x.role || '',
+    x.parent_code || '',
+    x.rib_status || 'missing',
+    x.last_activity ? new Date(x.last_activity).toLocaleString() : ''
+  ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(';');
+  lines.push(line);
+});
 
     const csv  = '\uFEFF' + lines.join('\r\n'); // BOM pour Excel
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
