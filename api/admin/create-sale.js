@@ -1,33 +1,40 @@
-export const config = { runtime: 'nodejs' };
-import { createClient } from '@supabase/supabase-js';
-import { ensureAdmin } from './_auth';
+// /api/admin/create-sale.js
+const { getAdminClient, assertAdmin } = require('../_lib/supabaseAdmin');
 
-const supa = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+module.exports = async (req, res) => {
+  if (!assertAdmin(req, res)) return;
+  if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
-export default async function handler(req, res) {
-  const ok = ensureAdmin(req, res);
-  if (ok !== true) return;
+  const {
+    order_id,
+    institute_name,
+    pro_name,
+    postal_code,
+    amount,
+    currency,
+    referral_code, // saisi dans le formulaire
+    created_at
+  } = req.body || {};
+
+  if (!institute_name || !pro_name || !postal_code || !amount || !currency || !referral_code) {
+    return res.status(400).json({ error: 'champs requis manquants' });
+  }
 
   try {
-    if (req.method !== 'POST') return res.status(405).json({ error:'Method Not Allowed' });
+    const supa = getAdminClient();
 
-    const {
-      order_id, institute_name, pro_name, postal_code,
-      amount, currency, referral_code, created_at
-    } = req.body || {};
-
-    if (!institute_name || !pro_name || !postal_code || !amount || !currency || !referral_code) {
-      return res.status(400).json({ error:'champs requis manquants' });
-    }
-
+    // 1) Retrouver le bénéficiaire par code (prend en compte "code" OU "referral_code")
     const { data: ref, error: e1 } = await supa
       .from('referrers')
-      .select('id, referral_code')
-      .eq('referral_code', referral_code)
+      .select('id, code, referral_code')
+      .or(`code.eq.${referral_code},referral_code.eq.${referral_code}`)
       .single();
 
-    if (e1 || !ref) return res.status(404).json({ error:'code parrain introuvable' });
+    if (e1 || !ref?.id) {
+      return res.status(404).json({ error: 'code parrain introuvable' });
+    }
 
+    // 2) Insérer la vente – IMPORTANT: seller_id (et pas referrer_id)
     const toInsert = {
       order_id: order_id || null,
       institute_name,
@@ -36,8 +43,8 @@ export default async function handler(req, res) {
       amount,
       currency,
       created_at: created_at || new Date().toISOString(),
-      referrer_id: ref.id,
-      referral_code
+      seller_id: ref.id,              // <-- clé étrangère requise
+      referral_code: referral_code    // utile pour l’historique/filtrage si tu l’as dans la table
     };
 
     const { data: sale, error: e2 } = await supa
@@ -46,10 +53,13 @@ export default async function handler(req, res) {
       .select('id')
       .single();
 
-    if (e2) return res.status(400).json({ error:e2.message });
+    if (e2) return res.status(400).json({ error: e2.message });
 
-    return res.status(200).json({ ok:true, sale_id: sale.id });
+    // 3) (optionnel) déclencher une RPC de calcul de commissions ici
+    // await supa.rpc('compute_commissions_for_sale', { sale_id_input: sale.id });
+
+    res.json({ ok: true, sale_id: sale.id });
   } catch (e) {
-    return res.status(500).json({ error:'server error (create-sale)', detail:String(e?.message||e) });
+    res.status(500).json({ error: String(e.message || e) });
   }
-}
+};
