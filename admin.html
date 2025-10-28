@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pro&Beauty — Admin (Commissions & RIB)</title>
+  <link rel="icon" href="data:,">
   <style>
     :root{
       --bg:#0b0f14; --card:#121821; --text:#eaf2fb; --muted:#9fb0c3;
@@ -40,13 +41,11 @@
     .tab.active{background:var(--accent);color:#06281c;border-color:transparent;font-weight:800}
     .hide{display:none !important}
 
-    /* Flash lignes */
     tr.flash-ok{animation: flashok 1.4s ease-out}
     tr.flash-bad{animation: flashbad 1.4s ease-out}
     @keyframes flashok { 0%{background:rgba(56,211,159,.25)} 100%{background:transparent} }
     @keyframes flashbad { 0%{background:rgba(255,107,107,.25)} 100%{background:transparent} }
 
-    /* Toast */
     .toastbox{position:fixed;top:16px;right:16px;display:flex;flex-direction:column;gap:8px;z-index:9999}
     .toast{
       background:#0f141c;border:1px solid var(--divider);color:#eaf2fb;
@@ -58,7 +57,6 @@
     .toast.bad .dot{background:var(--red)}
     .toast .label{font-weight:700}
 
-    /* Modales */
     .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:10000}
     .modal.show{display:flex}
     .modal .scrim{position:absolute;inset:0;background:rgba(0,0,0,.55)}
@@ -67,7 +65,6 @@
     .modal .row{margin-bottom:8px}
     .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
 
-    /* Erreurs de formulaire */
     .field{display:flex;flex-direction:column;gap:6px;min-width:260px}
     .error{color:#ffb3b3;font-size:12px;min-height:16px}
     .invalid{border-color:#ff6b6b}
@@ -78,7 +75,6 @@
     <div class="card">
       <h1>Admin — Pro&Beauty</h1>
 
-      <!-- Bandeau commun -->
       <div class="row">
         <input id="adm_token" type="password" placeholder="ADMIN_TOKEN (obligatoire)" style="min-width:260px" />
         <input id="adm_search" type="text" placeholder="Recherche globale (nom, email, code, commande, IBAN…)" style="flex:1" />
@@ -86,7 +82,6 @@
       </div>
       <div id="adm_msg" class="muted" style="margin-bottom:8px"></div>
 
-      <!-- Onglets -->
       <div class="tabs">
         <button class="tab active" data-tab="tab_comm">Commissions</button>
         <button class="tab" data-tab="tab_rib">RIB</button>
@@ -211,7 +206,6 @@
     </div>
   </div>
 
-  <!-- Toast container -->
   <div class="toastbox" id="toastbox"></div>
 
   <!-- Modal: éditer bénéficiaire -->
@@ -243,7 +237,6 @@
           <input name="brand" placeholder="Marque" />
           <small class="error" data-err="brand"></small>
         </div>
-        <!-- Code parrain: lecture seule (non modifiable) -->
         <div class="row field">
           <input name="code" placeholder="Code parrain" readonly title="Le code ne peut pas être modifié depuis l’admin">
           <small class="error" data-err="code"></small>
@@ -296,20 +289,14 @@
     </div>
   </div>
 
-  <!-- ================== SCRIPT ================== -->
   <script>
-    // === DEBUG light ===
     console.log('[ADMIN] Script chargé');
     window.addEventListener('error',e=>console.error('[ADMIN] JS error:',e.message));
     window.addEventListener('unhandledrejection',e=>console.error('[ADMIN] Promise rejection:',e.reason));
-    
-    // ---------- Helpers ----------
+
     const $ = q => document.querySelector(q);
     const debounce = (fn, ms=350)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
-    
-    // 👉 URL de l’Edge Function Supabase
-    const CREATE_SALE_URL = 'https://tpwkptzlhxitllugmlho.supabase.co/functions/v1/create-sale';
-    
+
     function showToast(text, ok=true){
       const box = $('#toastbox');
       const div = document.createElement('div');
@@ -322,9 +309,8 @@
     }
     function todayStr(){ return new Date().toISOString().slice(0,10); }
     function token(){ return ($('#adm_token').value || '').trim(); }
-    // 🔐 IMPORTANT: on utilise bien l’en-tête x-admin-token (et PAS Authorization)
     function auth(){ return { 'x-admin-token': token() }; }
-    
+
     function setPill(el, status){
       el.textContent = status;
       el.classList.remove('ok','warn','bad');
@@ -332,7 +318,7 @@
       else if (status==='pending' || status==='en attente') el.classList.add('warn');
       else if (status==='rejected') el.classList.add('bad');
     }
-    
+
     async function downloadCsvFrom(url, filename) {
       try{
         const res = await fetch(url, { headers: auth() });
@@ -344,8 +330,7 @@
         document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
       }catch(_){ showToast('Export impossible', false); }
     }
-    
-    // ---------- Modales ----------
+
     function openModal(sel){ const m=document.querySelector(sel); if(m){ m.classList.add('show'); } }
     function closeModal(sel){ const m=document.querySelector(sel); if(m){ m.classList.remove('show'); } }
     document.addEventListener('click',(e)=>{
@@ -357,16 +342,15 @@
         document.querySelectorAll('.modal.show').forEach(m=> m.classList.remove('show'));
       }
     });
-    
-    // ---------- Bandeau commun ----------
+
     const admTokenEl = $('#adm_token');
     const admSearchEl = $('#adm_search');
     const admMsg = $('#adm_msg');
     const tabs = document.querySelectorAll('.tab');
-    
+
     admTokenEl.value = localStorage.getItem('pnb_admin_token') || '';
     admTokenEl.addEventListener('input', ()=> localStorage.setItem('pnb_admin_token', admTokenEl.value.trim()));
-    
+
     tabs.forEach(btn=>{
       btn.addEventListener('click', ()=>{
         tabs.forEach(b=>b.classList.remove('active'));
@@ -375,20 +359,20 @@
         document.getElementById(btn.dataset.tab).classList.remove('hide');
       });
     });
-    
+
     $('#adm_reload')?.addEventListener('click', ()=>{ loadAll(true); });
     admSearchEl.addEventListener('input', debounce(()=> loadAll(true), 400));
     admTokenEl.addEventListener('input', debounce(()=> loadAll(true), 300));
-    
+
     // ===================== COMMISSIONS =====================
     const commTbody = $('#comm_tbody');
     const commStatusEl = $('#comm_status');
     const commMoreBtn = $('#comm_more');
     const commHint = $('#comm_hint');
     let commPage=1, commLimit=50, commHasMore=true, commOffset=0, commLastBatch=[];
-    
+
     commStatusEl.addEventListener('change', ()=> loadCommissions(true));
-    
+
     function commNormalize(item){
       if (!item.beneficiary && !item.sale) {
         return {
@@ -404,33 +388,33 @@
       }
       return item;
     }
-    
+
     async function loadCommissions(reset=true){
       try{
         if(!token()){ admMsg.textContent='Saisissez le token admin.'; return; }
         if(reset){ commPage=1; commHasMore=true; commOffset=0; commTbody.innerHTML='<tr><td colspan="4" class="muted">Chargement…</td></tr>'; }
-    
+
         const base='/api/admin/list-commissions';
         const p={ search:admSearchEl.value.trim(), page:String(commPage), limit:String(commLimit) };
         if(commStatusEl.value!=='all') p.status=commStatusEl.value;
         let url=`${base}?${new URLSearchParams(p).toString()}`;
         let r=await fetch(url,{ headers:auth() });
-    
+
         if(r.status===400||r.status===404||r.status===422){
           const p2={ search:admSearchEl.value.trim(), limit:String(commLimit), offset:String(commOffset) };
           if(commStatusEl.value!=='all') p2.status=commStatusEl.value;
           url=`${base}?${new URLSearchParams(p2).toString()}`;
           r=await fetch(url,{ headers:auth() });
         }
-    
+
         const j=await r.json();
         if(!r.ok){ admMsg.textContent=j.error||'Erreur'; return; }
         admMsg.textContent='';
-    
+
         const items=Array.isArray(j.items)?j.items:(Array.isArray(j.rows)?j.rows:[]);
         commLastBatch=items.map(commNormalize);
         if(reset) commTbody.innerHTML='';
-    
+
         if(commLastBatch.length===0 && (commPage===1||commOffset===0)){
           commTbody.innerHTML='<tr><td colspan="4" class="muted">Aucune commission.</td></tr>';
         }else{
@@ -468,16 +452,16 @@
             commTbody.appendChild(tr);
           }
         }
-    
+
         if(typeof j.hasMore==='boolean'){ commHasMore=j.hasMore; if(commHasMore) commPage+=1; }
         else{ commOffset=j.nextOffset!=null?j.nextOffset:(commOffset+commLastBatch.length); commHasMore=commLastBatch.length===commLimit; if(!commHasMore) commPage+=1; }
-    
+
         commMoreBtn.disabled=!commHasMore;
         commMoreBtn.textContent=commHasMore?'Charger +':'Plus de résultats';
         commHint.textContent=`Page ${commPage-1}`;
       }catch(e){ admMsg.textContent='Erreur chargement (commissions)'; console.error(e); }
     }
-    
+
     function updateCommissionRowUI(btn, newStatus){
       const tr = btn.closest('tr');
       const pill = tr.querySelector('[data-pill="status"]');
@@ -494,7 +478,7 @@
       }
       setTimeout(()=> tr.classList.remove('flash-ok','flash-bad'),1500);
     }
-    
+
     commTbody.addEventListener('click',(e)=>{
       const btn=e.target.closest('button[data-comm]'); if(!btn) return;
       const id = btn.dataset.id, to = btn.dataset.comm;
@@ -510,10 +494,9 @@
         })
         .catch(()=>{ btn.disabled=false; btn.style.opacity=1; showToast('Erreur réseau', false); });
     });
-    
+
     commMoreBtn.addEventListener('click', ()=>{ if(commHasMore) loadCommissions(false); });
-    
-    // Export commissions (identique à ta version)
+
     document.getElementById('comm_export').addEventListener('click', async ()=>{
       try{
         const p = {
@@ -556,7 +539,7 @@
         document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
       } catch (e) { console.error(e); showToast('Export impossible', false); }
     });
-    
+
     async function fetchAllCommissionsForExport() {
       const out = [];
       let page = 1, limit = 200, keep = true;
@@ -583,11 +566,11 @@
       }
       return out;
     }
-    
+
     // ===================== RIB =====================
     const ribTbody=$('#rib_tbody'), ribStatusEl=$('#rib_status'), ribMoreBtn=$('#rib_more'), ribExportBtn=$('#rib_export'), ribHint=$('#rib_hint');
     let ribOffset=0, ribLastBatch=[], ribSortBy='created_at', ribSortDir='desc';
-    
+
     function maskIban(iban){ if(!iban) return ''; const c=String(iban).replace(/\s+/g,''); if(c.length<=8) return c; return c.slice(0,4)+' •••• •••• •••• '+c.slice(-4); }
     function refreshRibHeaders(){
       const thC=document.querySelector('th[data-sort="created_at"]'); const thH=document.querySelector('th[data-sort="holder_name"]');
@@ -595,7 +578,7 @@
       if(thH) thH.textContent='IBAN (titulaire)'+(ribSortBy==='holder_name'?(ribSortDir==='asc'?up:down):' ▲▼');
     }
     ribStatusEl.addEventListener('change', ()=> loadRibs(true));
-    
+
     async function loadRibs(reset=true){
       try{
         if(!token()){ admMsg.textContent='Saisissez le token admin.'; return; }
@@ -603,7 +586,7 @@
         const url=`/api/admin/ribs-list?status=${encodeURIComponent(ribStatusEl.value)}&limit=50&offset=${ribOffset}&search=${encodeURIComponent(admSearchEl.value.trim())}&sort_by=${encodeURIComponent(ribSortBy)}&order=${encodeURIComponent(ribSortDir)}`;
         const r=await fetch(url,{ headers:auth() }); const j=await r.json();
         if(!r.ok){ admMsg.textContent=j.error||'Erreur'; return; } admMsg.textContent='';
-    
+
         if(reset) ribTbody.innerHTML=''; ribLastBatch=j.items||[];
         if(ribLastBatch.length===0 && ribOffset===0){ ribTbody.innerHTML='<tr><td colspan="5" class="muted">Aucun RIB.</td></tr>'; }
         else{
@@ -634,7 +617,7 @@
         refreshRibHeaders(); ribHint.textContent=`Offset ${ribOffset}`;
       }catch(e){ admMsg.textContent='Erreur chargement (RIB)'; console.error(e); }
     }
-    
+
     function updateRibRowUI(btn, newStatus){
       const tr = btn.closest('tr');
       const pill = tr.querySelector('[data-pill="rib"]');
@@ -651,7 +634,7 @@
       }
       setTimeout(()=> tr.classList.remove('flash-ok','flash-bad'),1500);
     }
-    
+
     document.querySelectorAll('th[data-sort]').forEach(th=>{
       th.addEventListener('click', ()=>{
         const col=th.getAttribute('data-sort'); if(col==='referrer') return;
@@ -659,7 +642,7 @@
         loadRibs(true);
       });
     });
-    
+
     ribTbody.addEventListener('click', (e)=>{
       const p=e.target.closest('button[data-proof]'); if(p){ openProof(p.dataset.proof); return; }
       const b=e.target.closest('button[data-rib]'); if(!b) return;
@@ -673,7 +656,7 @@
         })
         .catch(()=>{ b.disabled=false; b.style.opacity=1; showToast('Erreur réseau', false); });
     });
-    
+
     async function openProof(rib_id){
       try{
         if (!token()) { alert('Saisissez le token admin.'); return; }
@@ -693,14 +676,14 @@
         alert('Impossible d’ouvrir le justificatif.');
       }
     }
-    
+
     ribMoreBtn.addEventListener('click', ()=> loadRibs(false));
     ribExportBtn.addEventListener('click', async ()=>{
       const p = { status: $('#rib_status').value, search: admSearchEl.value.trim(), sort_by:'created_at', order:'desc', limit:'10000', offset:'0', format:'csv' };
       const url = `/api/admin/ribs-list?${new URLSearchParams(p).toString()}`;
       await downloadCsvFrom(url, `export-ribs-${todayStr()}.csv`);
     });
-    
+
     // ===================== VENTES =====================
     const salesTbody = $('#sales_tbody');
     const salesFrom = $('#sales_from');
@@ -709,12 +692,11 @@
     const salesAmtMin = $('#sales_amt_min');
     const salesAmtMax = $('#sales_amt_max');
     let salesOffset = 0;
-    
-    // Listener sur les filtres
+
     [salesFrom, salesTo, salesCp, salesAmtMin, salesAmtMax].forEach(el => {
       if (el) el.addEventListener('input', debounce(() => loadSales(true), 400));
     });
-    
+
     async function loadSales(reset = true) {
       try {
         if (!token()) return;
@@ -722,7 +704,7 @@
           salesOffset = 0;
           salesTbody.innerHTML = '<tr><td colspan="6" class="muted">Chargement…</td></tr>';
         }
-        
+
         const p = { limit: '50', offset: String(salesOffset) };
         if (salesFrom.value) p.date_from = salesFrom.value;
         if (salesTo.value) p.date_to = salesTo.value;
@@ -730,14 +712,14 @@
         if (salesAmtMin.value) p.amount_min = salesAmtMin.value;
         if (salesAmtMax.value) p.amount_max = salesAmtMax.value;
         if (admSearchEl.value.trim()) p.search = admSearchEl.value.trim();
-        
+
         const r = await fetch(`/api/admin/list-sales?${new URLSearchParams(p).toString()}`, { headers: auth() });
         const j = await r.json();
         if (!r.ok) { admMsg.textContent = j.error || 'Erreur'; return; }
-        
+
         if (reset) salesTbody.innerHTML = '';
         const items = j.items || [];
-        
+
         if (items.length === 0 && salesOffset === 0) {
           salesTbody.innerHTML = '<tr><td colspan="6" class="muted">Aucune vente.</td></tr>';
         } else {
@@ -760,46 +742,41 @@
         salesTbody.innerHTML = '<tr><td colspan="6" class="muted">Erreur chargement</td></tr>';
       }
     }
-    
-    // Bouton ajouter vente
+
     $('#sales_add')?.addEventListener('click', () => {
       const form = $('#form-add-sale');
       if (form) {
         form.reset();
-        $('#modal-add-sale [name="created_at"]')?.remove();
-        $('#modal-add-sale [data-err]').forEach(el => el.textContent = '');
+        document.querySelectorAll('#modal-add-sale [data-err]').forEach(el => el.textContent = '');
         openModal('#modal-add-sale');
       }
     });
-    
-    // Soumission formulaire ajout vente
+
     $('#form-add-sale')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const form = e.target;
       const btn = form.querySelector('button[type="submit"]');
       if (!token()) { showToast('Token admin requis', false); return; }
-      
+
       const fd = new FormData(form);
       const data = {};
-      for (const [k, v] of fd.entries()) data[k] = v.trim();
-      
-      // Validation
-      const errors = $('#modal-add-sale [data-err]');
-      errors.forEach(el => el.textContent = '');
-      
+      for (const [k, v] of fd.entries()) data[k] = String(v).trim();
+
+      document.querySelectorAll('#modal-add-sale [data-err]').forEach(el => el.textContent = '');
+
       if (!data.postal_code || data.postal_code.length !== 5) {
-        $('#modal-add-sale [data-err="postal_code"]').textContent = 'Code postal doit faire 5 chiffres';
+        document.querySelector('#modal-add-sale [data-err="postal_code"]').textContent = 'Code postal doit faire 5 chiffres';
         return;
       }
       if (!data.amount || parseFloat(data.amount) <= 0) {
-        $('#modal-add-sale [data-err="amount"]').textContent = 'Montant invalide';
+        document.querySelector('#modal-add-sale [data-err="amount"]').textContent = 'Montant invalide';
         return;
       }
       if (!data.institute_name || !data.pro_name || !data.referral_code) {
-        $('#modal-add-sale [data-err="form"]').textContent = 'Tous les champs sont requis';
+        document.querySelector('#modal-add-sale [data-err="form"]').textContent = 'Tous les champs sont requis';
         return;
       }
-      
+
       btn.disabled = true;
       try {
         const r = await fetch('/api/admin/create-sale', {
@@ -813,25 +790,69 @@
         });
         const j = await r.json();
         if (!r.ok) {
-          $('#modal-add-sale [data-err="form"]').textContent = j.error || 'Erreur';
+          document.querySelector('#modal-add-sale [data-err="form"]').textContent = j.error || 'Erreur';
           return;
         }
         closeModal('#modal-add-sale');
         showToast('Vente créée ✅', true);
         loadSales(true);
       } catch (err) {
-        $('#modal-add-sale [data-err="form"]').textContent = 'Erreur réseau';
+        document.querySelector('#modal-add-sale [data-err="form"]').textContent = 'Erreur réseau';
       } finally {
         btn.disabled = false;
       }
     });
-    
-    // Export CSV ventes
+
+    // EXPORT CSV VENTES (implémenté)
     $('#sales_export')?.addEventListener('click', async () => {
-      // TODO: implémenter export CSV si nécessaire
-      showToast('Export non implémenté', false);
+      try {
+        const p = {
+          limit: '10000',
+          offset: '0'
+        };
+        if (salesFrom.value) p.date_from = salesFrom.value;
+        if (salesTo.value) p.date_to = salesTo.value;
+        if (salesCp.value.trim()) p.postal = salesCp.value.trim();
+        if (salesAmtMin.value) p.amount_min = salesAmtMin.value;
+        if (salesAmtMax.value) p.amount_max = salesAmtMax.value;
+        if (admSearchEl.value.trim()) p.search = admSearchEl.value.trim();
+
+        const r = await fetch(`/api/admin/list-sales?${new URLSearchParams(p).toString()}`, { headers: auth() });
+        const j = await r.json();
+        if (!r.ok) { showToast(j.error || 'Export impossible', false); return; }
+
+        const rows = Array.isArray(j.items) ? j.items : [];
+        if (!rows.length) { showToast('Aucune vente à exporter', false); return; }
+
+        const head = ['date','order_id','institut','professionnel','cp','montant','devise'];
+        const lines = [head.join(';')];
+
+        rows.forEach(s => {
+          const line = [
+            s.created_at ? new Date(s.created_at).toLocaleString() : '',
+            s.order_id || '',
+            s.institute_name || '',
+            s.pro_name || '',
+            s.postal_code || '',
+            s.amount != null ? Number(s.amount).toFixed(2) : '',
+            s.currency || 'EUR'
+          ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(';');
+          lines.push(line);
+        });
+
+        const csv = '\uFEFF' + lines.join('\r\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `export-ventes-${todayStr()}.csv`;
+        document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
+        showToast('Export ventes OK', true);
+      } catch (e) {
+        console.error(e);
+        showToast('Export impossible', false);
+      }
     });
-    
+
     // ===================== BENEFICIAIRES =====================
     const refsTbody = $('#refs_tbody');
     const refsRib = $('#refs_rib');
@@ -839,12 +860,11 @@
     const refsTo = $('#refs_to');
     const refsQ = $('#refs_q');
     let refsOffset = 0;
-    
-    // Listeners
+
     [refsRib, refsFrom, refsTo, refsQ].forEach(el => {
       if (el) el.addEventListener('input', debounce(() => loadReferrers(true), 400));
     });
-    
+
     async function loadReferrers(reset = true) {
       try {
         if (!token()) return;
@@ -852,21 +872,21 @@
           refsOffset = 0;
           refsTbody.innerHTML = '<tr><td colspan="8" class="muted">Chargement…</td></tr>';
         }
-        
+
         const p = { limit: '100', offset: String(refsOffset) };
         if (refsRib.value !== 'all') p.rib = refsRib.value;
         if (refsFrom.value) p.date_from = refsFrom.value;
         if (refsTo.value) p.date_to = refsTo.value;
         if (refsQ.value.trim()) p.search = refsQ.value.trim();
         if (admSearchEl.value.trim()) p.search = admSearchEl.value.trim();
-        
+
         const r = await fetch(`/api/admin/list-referrers?${new URLSearchParams(p).toString()}`, { headers: auth() });
         const j = await r.json();
         if (!r.ok) { admMsg.textContent = j.error || 'Erreur'; return; }
-        
+
         if (reset) refsTbody.innerHTML = '';
         const items = j.items || [];
-        
+
         if (items.length === 0 && refsOffset === 0) {
           refsTbody.innerHTML = '<tr><td colspan="8" class="muted">Aucun bénéficiaire.</td></tr>';
         } else {
@@ -892,8 +912,7 @@
         refsTbody.innerHTML = '<tr><td colspan="8" class="muted">Erreur chargement</td></tr>';
       }
     }
-    
-    // Clic sur bouton modifier
+
     refsTbody.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-edit-ref]');
       if (!btn) return;
@@ -911,21 +930,20 @@
             form.querySelector('[name="phone"]').value = ref.phone || '';
             form.querySelector('[name="brand"]').value = ref.brand || '';
             form.querySelector('[name="code"]').value = ref.code || '';
-            $('#modal-edit-ref [data-err]').forEach(el => el.textContent = '');
+            document.querySelectorAll('#modal-edit-ref [data-err]').forEach(el => el.textContent = '');
             openModal('#modal-edit-ref');
           }
         });
     });
-    
-    // Soumission édition bénéficiaire
+
     $('#form-edit-ref')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = e.target.querySelector('button[type="submit"]');
       btn.disabled = true;
       const fd = new FormData(e.target);
       const data = { id: fd.get('id') };
-      for (const [k, v] of fd.entries()) if (k !== 'id' && k !== 'code') data[k] = v.trim();
-      
+      for (const [k, v] of fd.entries()) if (k !== 'id' && k !== 'code') data[k] = String(v).trim();
+
       try {
         const r = await fetch('/api/admin/referrers-update', {
           method: 'POST',
@@ -934,26 +952,68 @@
         });
         const j = await r.json();
         if (!r.ok) {
-          $('#modal-edit-ref [data-err="form"]').textContent = j.error || 'Erreur';
+          document.querySelector('#modal-edit-ref [data-err="form"]').textContent = j.error || 'Erreur';
           return;
         }
         closeModal('#modal-edit-ref');
         showToast('Bénéficiaire modifié ✅', true);
         loadReferrers(true);
       } catch (err) {
-        $('#modal-edit-ref [data-err="form"]').textContent = 'Erreur réseau';
+        document.querySelector('#modal-edit-ref [data-err="form"]').textContent = 'Erreur réseau';
       } finally {
         btn.disabled = false;
       }
     });
-    
-    // Export CSV bénéficiaires
-    $('#refs_export')?.addEventListener('click', () => {
-      // TODO: implémenter si nécessaire
-      showToast('Export non implémenté', false);
+
+    // EXPORT CSV BENEFICIAIRES (implémenté)
+    $('#refs_export')?.addEventListener('click', async () => {
+      try{
+        const p = {
+          limit: '10000',
+          offset: '0'
+        };
+        if (refsRib.value !== 'all') p.rib = refsRib.value;
+        if (refsFrom.value) p.date_from = refsFrom.value;
+        if (refsTo.value) p.date_to = refsTo.value;
+        const q = (refsQ.value || admSearchEl.value || '').trim();
+        if (q) p.search = q;
+
+        const r = await fetch(`/api/admin/list-referrers?${new URLSearchParams(p).toString()}`, { headers: auth() });
+        const j = await r.json();
+        if (!r.ok) { showToast(j.error || 'Export impossible', false); return; }
+
+        const rows = Array.isArray(j.items) ? j.items : [];
+        if (!rows.length) { showToast('Aucune donnée à exporter', false); return; }
+
+        const head = ['Commercial','Email','Téléphone','Marque','Code','Statut RIB','Dernière activité'];
+        const lines = [head.join(';')];
+
+        rows.forEach(x => {
+          const line = [
+            `${(x.first_name||'')} ${(x.last_name||'')}`.trim(),
+            x.email || '',
+            x.phone || '',
+            x.brand || '',
+            x.code || '',
+            x.rib_status || 'missing',
+            x.last_activity ? new Date(x.last_activity).toLocaleString() : ''
+          ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(';');
+          lines.push(line);
+        });
+
+        const csv = '\uFEFF' + lines.join('\r\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `export-beneficiaires-${todayStr()}.csv`;
+        document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
+        showToast('Export bénéficiaires OK', true);
+      }catch(e){
+        console.error(e);
+        showToast('Export bénéficiaires impossible', false);
+      }
     });
-    
-    // ====== Charge tout au démarrage ======
+
     function loadAll(reset) {
       loadCommissions(reset);
       loadRibs(reset);
@@ -961,6 +1021,6 @@
       loadReferrers(reset);
     }
     if (token()) { loadAll(true); }
-    </script>    
+  </script>
 </body>
 </html>
