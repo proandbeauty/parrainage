@@ -1,31 +1,29 @@
-// api/admin/export-commissions.js
+// api/admin/export-commissions.js  (CommonJS)
 const { ensureAdmin } = require('./_auth');
 const { createClient } = require('@supabase/supabase-js');
 
 module.exports.config = { runtime: 'nodejs' };
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY;
-const supabase     = createClient(SUPABASE_URL, SERVICE_KEY);
-
-function csvEscape(val){ if(val==null) return ''; const s=String(val).replace(/"/g,'""'); return `"${s}"`; }
+const supa = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+const csvEscape = (v) => `"${String(v??'').replace(/"/g,'""')}"`;
 
 module.exports = async (req, res) => {
+  if (ensureAdmin(req, res) !== true) return;
+
   try {
-    if (req.method !== 'GET') return res.status(405).json({ error: 'Method Not Allowed' });
-    if (ensureAdmin(req,res)!==true) return;
+    if (req.method !== 'GET') return res.status(405).json({ error:'Method Not Allowed' });
 
     const { status, from, to } = req.query;
-    let query = supabase.from('v_commissions_detailed')
+    let q = supa.from('v_commissions_detailed')
       .select('*')
-      .order('commission_created_at', { ascending: false });
+      .order('commission_created_at', { ascending:false });
 
-    if (status) query = query.eq('status', status);
-    if (from)   query = query.gte('commission_created_at', from);
-    if (to)     query = query.lte('commission_created_at', to);
+    if (status) q = q.eq('status', status);
+    if (from)   q = q.gte('commission_created_at', from);
+    if (to)     q = q.lte('commission_created_at', to);
 
-    const { data, error } = await query.limit(50000);
-    if (error) return res.status(500).json({ error: 'query failed', detail: error.message });
+    const { data, error } = await q.limit(50000);
+    if (error) return res.status(500).json({ error:'query failed', detail:error.message });
 
     const headers = [
       'commission_id','commission_created_at','status','role',
@@ -34,6 +32,7 @@ module.exports = async (req, res) => {
       'beneficiary_id','first_name','last_name','email','referral_code'
     ];
     const lines = [headers.map(csvEscape).join(',')];
+
     for (const r of data || []) {
       lines.push([
         r.commission_id, r.commission_created_at, r.status, r.role,
@@ -45,11 +44,11 @@ module.exports = async (req, res) => {
 
     const csv = lines.join('\r\n');
     const filename = `export-commissions-${new Date().toISOString().slice(0,10)}.csv`;
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Type','text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.status(200).send(csv);
   } catch (e) {
     console.error('export-commissions fatal:', e);
-    res.status(500).json({ error: 'server error' });
+    res.status(500).json({ error:'server error' });
   }
 };

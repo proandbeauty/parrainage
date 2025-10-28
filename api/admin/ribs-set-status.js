@@ -1,43 +1,36 @@
-// api/admin/ribs-set-status.js
+// api/admin/ribs-set-status.js  (CommonJS)
 const { ensureAdmin } = require('./_auth');
 const { createClient } = require('@supabase/supabase-js');
 
 module.exports.config = { runtime: 'nodejs' };
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY;
-const supabase     = createClient(SUPABASE_URL, SERVICE_KEY);
-
-function bad(res, msg, code=400, detail=''){ return res.status(code).json({ error: msg, detail }); }
+const supa = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
 module.exports = async (req, res) => {
-  try{
-    if(req.method!=='POST') return bad(res,'Method Not Allowed',405);
-    if(ensureAdmin(req,res)!==true) return;
+  if (ensureAdmin(req, res) !== true) return;
+
+  try {
+    if (req.method!=='POST') return res.status(405).json({ error:'Method Not Allowed' });
 
     const { id, status } = req.body || {};
-    if(!id || !status) return bad(res,'id et status requis');
+    if (!id || !status) return res.status(400).json({ error:'id et status requis' });
 
     let newStatus = String(status).toLowerCase();
-    if(newStatus==='validated') newStatus='approved';
-    if(!['approved','rejected','pending'].includes(newStatus))
-      return bad(res,'Statut invalide',400);
-
-    const { data, error } = await supabase
-      .from('bank_accounts')
-      .update({ status: newStatus, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select('id,status')
-      .maybeSingle();
-
-    if(error){
-      console.error('[ribs-set-status] supabase error:', error);
-      return bad(res, 'Erreur base de données (maj RIB).', 500, error.message || String(error));
+    if (newStatus==='validated') newStatus='approved';
+    if (!['approved','rejected','pending'].includes(newStatus)) {
+      return res.status(400).json({ error:'Statut invalide' });
     }
-    if(!data) return bad(res,'RIB introuvable',404);
+
+    const { data, error } = await supa
+      .from('bank_accounts')
+      .update({ status:newStatus, updated_at:new Date().toISOString() })
+      .eq('id', id).select('id,status').maybeSingle();
+
+    if (error) return res.status(500).json({ error:'Erreur base de données (maj RIB).', detail:error.message });
+    if (!data)  return res.status(404).json({ error:'RIB introuvable' });
+
     return res.status(200).json({ ok:true, id:data.id, status:data.status });
-  }catch(e){
-    console.error('[ribs-set-status] server error:', e);
-    return bad(res,'Erreur serveur (maj RIB).',500, e.message || String(e));
+  } catch (e) {
+    return res.status(500).json({ error:'Erreur serveur (maj RIB).', detail:String(e.message||e) });
   }
 };

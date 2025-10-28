@@ -1,18 +1,22 @@
-// api/admin/referrers-set-status.js
-const { getAdminClient, assertAdmin } = require('../_lib/supabaseAdmin');
+// api/admin/referrers-set-status.js  (CommonJS)
+const { ensureAdmin } = require('./_auth');
+const { getAdminClient } = require('../_lib/supabaseAdmin');
+
+module.exports.config = { runtime: 'nodejs' };
 
 module.exports = async (req, res) => {
-  if (!assertAdmin(req, res)) return;
-  if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+  if (ensureAdmin(req, res) !== true) return;
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
   const { id, status } = req.body || {};
-  if (!id || !['suspended', 'active'].includes(status)) {
+  if (!id || !['suspended', 'active'].includes((status || '').toLowerCase())) {
     return res.status(400).json({ error: 'payload invalide' });
   }
 
+  const is_suspended = status.toLowerCase() === 'suspended';
+
   try {
     const supa = getAdminClient();
-    const is_suspended = status === 'suspended';
     const { error } = await supa.from('referrers').update({ is_suspended }).eq('id', id);
     if (error) return res.status(400).json({ error: error.message });
     res.json({ ok: true });

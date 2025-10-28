@@ -1,39 +1,37 @@
-// api/admin/list-commissions.js
+// api/admin/list-commissions.js  (CommonJS)
 const { ensureAdmin } = require('./_auth');
 const { createClient } = require('@supabase/supabase-js');
 
 module.exports.config = { runtime: 'nodejs' };
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY;
-const supabase     = createClient(SUPABASE_URL, SERVICE_KEY);
-
-const ok  = (res, body) => res.status(200).json(body);
-const bad = (res, msg, code=400) => res.status(code).json({ error: msg });
+const supa = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
 module.exports = async (req, res) => {
-  try{
-    if(req.method!=='GET') return bad(res,'Method Not Allowed',405);
-    if(ensureAdmin(req,res)!==true) return;
+  if (ensureAdmin(req, res) !== true) return;
 
+  try {
     const page   = parseInt(req.query.page||'0',10);
     const limit  = Math.min(parseInt(req.query.limit||'50',10), 200);
     const offset = parseInt(req.query.offset||'0',10);
     const status = String(req.query.status||'').trim().toLowerCase();
     const search = String(req.query.search||'').trim();
 
-    let q = supabase
+    let q = supa
       .from('v_commissions_detailed')
       .select(`
-        id, amount, currency, status, role, created_at,
-        first_name, last_name, email, referral_code,
+        commission_id:id,
+        commission_amount:amount,
+        commission_currency:currency,
+        status, role, commission_created_at:created_at,
+        beneficiary_id,
+        first_name,last_name,email,referral_code,
         sale_id, order_id, sale_amount, sale_currency, sale_created_at
       `)
-      .order('created_at',{ascending:false});
+      .order('created_at', { ascending:false });
 
-    if(status && status!=='all') q = q.eq('status', status);
+    if (status && status!=='all') q = q.eq('status', status);
 
-    if(search){
+    if (search) {
       const term = search.replace(/[%,"']/g,'');
       q = q.or([
         `first_name.ilike.%${term}%`,
@@ -44,23 +42,19 @@ module.exports = async (req, res) => {
       ].join(','));
     }
 
-    if(page>0){
+    if (page > 0) {
       const from=(page-1)*limit, to=from+limit-1;
       q = q.range(from,to);
-    }else{
+    } else {
       q = q.range(offset, offset+limit-1);
     }
 
     const { data, error } = await q;
-    if(error){
-      console.error('Supabase (commissions) error:', error);
-      return bad(res,'Erreur base de données (commissions).',500);
-    }
+    if (error) return res.status(500).json({ error:'Erreur base de données (commissions).', detail:error.message });
 
-    if(page>0) return ok(res,{ items:data||[], hasMore:(data?.length||0)===limit });
-    return ok(res,{ items:data||[], nextOffset: offset + (data?.length||0) });
-  }catch(e){
-    console.error('Server (commissions) error:', e);
-    return bad(res,'Erreur serveur (commissions).',500);
+    if (page>0) return res.status(200).json({ items:data||[], hasMore:(data?.length||0)===limit });
+    return res.status(200).json({ items:data||[], nextOffset: offset + (data?.length||0) });
+  } catch (e) {
+    return res.status(500).json({ error:'Erreur serveur (commissions).', detail:String(e.message||e) });
   }
 };

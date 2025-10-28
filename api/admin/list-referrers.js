@@ -1,36 +1,30 @@
-// api/admin/list-referrers.js
+// api/admin/list-referrers.js  (CommonJS)
 const { ensureAdmin } = require('./_auth');
 const { createClient } = require('@supabase/supabase-js');
 
 module.exports.config = { runtime: 'nodejs' };
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY;
-const supabase     = createClient(SUPABASE_URL, SERVICE_KEY);
-
-const ok  = (res, body) => res.status(200).json(body);
-const bad = (res, msg, code = 400) => res.status(code).json({ error: msg });
+const supa = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
 module.exports = async (req, res) => {
+  if (ensureAdmin(req, res) !== true) return;
+
   try {
-    if (req.method !== 'GET') return bad(res, 'Method Not Allowed', 405);
-    if (ensureAdmin(req, res) !== true) return;
+    const limit  = Math.min(parseInt(req.query.limit||'100',10), 500);
+    const offset = parseInt(req.query.offset||'0',10);
+    const search = String(req.query.search||'').trim();
+    const rib    = String(req.query.rib||'all').toLowerCase(); // approved|pending|rejected|missing|all
+    const dateFrom = String(req.query.date_from||'').trim();
+    const dateTo   = String(req.query.date_to||'').trim();
 
-    const limit    = Math.min(parseInt(req.query.limit  || '100', 10), 500);
-    const offset   = parseInt(req.query.offset || '0', 10);
-    const search   = String(req.query.search   || '').trim();
-    const rib      = String(req.query.rib      || 'all').toLowerCase(); // approved|pending|rejected|missing|all
-    const dateFrom = String(req.query.date_from|| '').trim();
-    const dateTo   = String(req.query.date_to  || '').trim();
-
-    let q = supabase
+    let q = supa
       .from('referrers')
       .select('id, first_name, last_name, email, referral_code, created_at, updated_at')
-      .order('updated_at', { ascending: false })
+      .order('updated_at', { ascending:false })
       .limit(2000);
 
     if (search) {
-      const term = search.replace(/[%,"']/g, '');
+      const term = search.replace(/[%,"']/g,'');
       q = q.or([
         `first_name.ilike.%${term}%`,
         `last_name.ilike.%${term}%`,
@@ -39,26 +33,18 @@ module.exports = async (req, res) => {
       ].join(','));
     }
     if (dateFrom) q = q.gte('created_at', dateFrom);
-    if (dateTo)   q = q.lte('created_at', `${dateTo}T23:59:59`);
+    if (dateTo)   q = q.lte('created_at', dateTo+'T23:59:59');
 
     const { data: refs, error } = await q;
-    if (error) {
-      console.error('Supabase (referrers) error:', error);
-      return bad(res, 'Erreur base de données (bénéficiaires).', 500);
-    }
+    if (error) return res.status(500).json({ error:'Erreur base de données (bénéficiaires).', detail:error.message });
 
-    const { data: ribs, error: e2 } = await supabase
-      .from('bank_accounts')
-      .select('referrer_id, status, updated_at');
-    if (e2) {
-      console.error('Supabase (ribs for referrers) error:', e2);
-      return bad(res, 'Erreur lecture RIB (bénéficiaires).', 500);
-    }
+    const { data: ribs, error: e2 } = await supa.from('bank_accounts').select('referrer_id, status, updated_at');
+    if (e2) return res.status(500).json({ error:'Erreur lecture RIB (bénéficiaires).', detail:e2.message });
 
     const map = new Map();
-    (ribs || []).forEach(r => map.set(r.referrer_id, r.status || 'pending'));
+    ribs?.forEach(r => map.set(r.referrer_id, r.status || 'pending'));
 
-    let rows = (refs || []).map(r => ({
+    let rows = (refs||[]).map(r => ({
       id: r.id,
       first_name: r.first_name,
       last_name: r.last_name,
@@ -68,14 +54,11 @@ module.exports = async (req, res) => {
       rib_status: map.get(r.id) || 'missing'
     }));
 
-    if (rib && rib !== 'all') rows = rows.filter(x => x.rib_status === rib);
+    if (rib && rib!=='all') rows = rows.filter(x => x.rib_status === rib);
 
-    const sliced = rows.slice(offset, offset + limit);
-    const nextOffset = offset + sliced.length;
-
-    return ok(res, { items: sliced, nextOffset });
+    const sliced = rows.slice(offset, offset+limit);
+    return res.status(200).json({ items: sliced, nextOffset: offset + sliced.length });
   } catch (e) {
-    console.error('Server (list-referrers) error:', e);
-    return bad(res, 'Erreur serveur (bénéficiaires).', 500);
+    return res.status(500).json({ error:'Erreur serveur (bénéficiaires).', detail:String(e.message||e) });
   }
 };
