@@ -1,65 +1,96 @@
 // /api/admin/create-sale.js
-const { getAdminClient, assertAdmin } = require('../_lib/supabaseAdmin');
+const { ensureAdmin } = require('./_auth');
+export const config = { runtime: 'nodejs' };
 
-module.exports = async (req, res) => {
-  if (!assertAdmin(req, res)) return;
+import { createClient } from '@supabase/supabase-js';
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY;
+const supa = createClient(SUPABASE_URL, SERVICE_KEY);
+
+export default async function handler(req, res) {
+  if (ensureAdmin(req, res) !== true) return;
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
-  const {
-    order_id,
-    institute_name,
-    pro_name,
-    postal_code,
-    amount,
-    currency,
-    referral_code, // saisi dans le formulaire
-    created_at
-  } = req.body || {};
-
-  if (!institute_name || !pro_name || !postal_code || !amount || !currency || !referral_code) {
-    return res.status(400).json({ error: 'champs requis manquants' });
-  }
-
   try {
-    const supa = getAdminClient();
-
-    // 1) Retrouver le bénéficiaire par code (prend en compte "code" OU "referral_code")
-    const { data: ref, error: e1 } = await supa
-      .from('referrers')
-      .select('id, code, referral_code')
-      .or(`code.eq.${referral_code},referral_code.eq.${referral_code}`)
-      .single();
-
-    if (e1 || !ref?.id) {
-      return res.status(404).json({ error: 'code parrain introuvable' });
-    }
-
-    // 2) Insérer la vente – IMPORTANT: seller_id (et pas referrer_id)
-    const toInsert = {
-      order_id: order_id || null,
+    const {
+      order_id = null,
       institute_name,
       pro_name,
       postal_code,
       amount,
+      currency = 'EUR',
+      referral_code,       // <- IMPORTANT
+      created_at = new Date().toISOString()
+    } = req.body || {};
+
+    // validations simples
+    if (!institute_name || !pro_name || !postal_code || !amount || !referral_code) {
+      return res.status(400).json({ error: 'champs requis manquants' });
+    }
+
+    // 1) Trouver le vendeur par *referral_code* (pas "code")
+    const { data: seller, error: eSeller } = await supa
+      .from('referrers')
+      .select('id, parent_id, referral_code')
+      .eq('referral_code', referral_code)
+      .maybeSingle();
+
+    if (eSeller) return res.status(400).json({ error: eSeller.message });
+    if (!seller) return res.status(404).json({ error: 'code parrain introuvable' });
+
+    // 2) Insérer la vente en renseignant seller_id
+    const saleToInsert = {
+      order_id,
+      institute_name,
+      pro_name,
+      postal_code,
+      amount: Number(amount),
       currency,
-      created_at: created_at || new Date().toISOString(),
-      seller_id: ref.id,              // <-- clé étrangère requise
-      referral_code: referral_code    // utile pour l’historique/filtrage si tu l’as dans la table
+      created_at,
+      seller_id: seller.id
     };
 
-    const { data: sale, error: e2 } = await supa
+    const { data: sale, error: eSale } = await supa
       .from('sales')
-      .insert(toInsert)
-      .select('id')
+      .insert(saleToInsert)
+      .select('id, amount, currency')
       .single();
 
-    if (e2) return res.status(400).json({ error: e2.message });
+    if (eSale) return res.status(400).json({ error: eSale.message });
 
-    // 3) (optionnel) déclencher une RPC de calcul de commissions ici
-    // await supa.rpc('compute_commissions_for_sale', { sale_id_input: sale.id });
+    // 3) Insérer les commissions directement ici
+    //    (adapte les % si besoin ; ATTENTION aux valeurs autorisées par ton CHECK)
+    const SELLER_RATE = 0.20; // 20%
+    const PARENT_RATE = 0.05; // 5%
+    const rows = [{
+      sale_id: sale.id,
+      beneficiary_id: seller.id,
+      role: 'seller',             // doit être 'seller' ou 'parent' (CHECK comm_role_chk)
+      amount: +(sale.amount * SELLER_RATE).toFixed(2),
+      currency: sale.currency,
+      status: 'approved',         // ou 'pending'
+      created_at: new Date().toISOString()
+    }];
 
-    res.json({ ok: true, sale_id: sale.id });
+    if (seller.parent_id) {
+      rows.push({
+        sale_id: sale.id,
+        beneficiary_id: seller.parent_id,
+        role: 'parent',
+        amount: +(sale.amount * PARENT_RATE).toFixed(2),
+        currency: sale.currency,
+        status: 'approved',
+        created_at: new Date().toISOString()
+      });
+    }
+
+    const { error: eComm } = await supa.from('commissions').insert(rows);
+    if (eComm) return res.status(400).json({ error: eComm.message });
+
+    return res.json({ ok: true, sale_id: sale.id });
   } catch (e) {
-    res.status(500).json({ error: String(e.message || e) });
+    console.error('create-sale fatal:', e);
+    return res.status(500).json({ error: String(e.message || e) });
   }
-};
+}
