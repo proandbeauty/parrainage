@@ -924,29 +924,44 @@
       }
     }
 
-    refsTbody.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-edit-ref]');
-      if (!btn) return;
+    refsTbody.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-edit-ref]');
+  if (!btn) return;
 
-      try {
-        const ref = JSON.parse(decodeURIComponent(btn.getAttribute('data-edit-ref')));
-        const form = $('#form-edit-ref');
-        form.querySelector('[name="id"]').value         = ref.id;
-        form.querySelector('[name="first_name"]').value = ref.first_name || '';
-        form.querySelector('[name="last_name"]').value  = ref.last_name  || '';
-        form.querySelector('[name="email"]').value      = ref.email      || '';
-        form.querySelector('[name="phone"]').value      = ref.phone      || '';
-        form.querySelector('[name="brand"]').value      = ref.brand      || '';
-        form.querySelector('[name="code"]').value       = ref.code || ref.referral_code || '';
+  const refId = btn.dataset.editRef;
+  if (!refId) return;
 
-        // nettoie les messages d'erreur de la modale
-        document.querySelectorAll('#modal-edit-ref [data-err]').forEach(el => el.textContent = '');
-        openModal('#modal-edit-ref');
-      } catch (err) {
-        console.error('edit-ref parse error:', err);
-      }
-    });
+  try {
+    // Requête à l’API pour récupérer la fiche complète (en direct depuis Supabase)
+    const r = await fetch(`/api/admin/list-referrers?id=${encodeURIComponent(refId)}&limit=1`, { headers: auth() });
+    const j = await r.json();
 
+    if (!r.ok || !j.items || !j.items.length) {
+      showToast('Erreur lors du chargement du bénéficiaire', false);
+      return;
+    }
+
+    const ref = j.items[0];
+    const form = $('#form-edit-ref');
+    form.querySelector('[name="id"]').value         = ref.id;
+    form.querySelector('[name="first_name"]').value = ref.first_name || '';
+    form.querySelector('[name="last_name"]').value  = ref.last_name  || '';
+    form.querySelector('[name="email"]').value      = ref.email      || '';
+    form.querySelector('[name="phone"]').value      = ref.phone      || '';
+    form.querySelector('[name="brand"]').value      = ref.brand      || '';
+    form.querySelector('[name="code"]').value       = ref.code || ref.referral_code || '';
+
+    // 🧹 Nettoie les anciens messages d’erreur
+    document.querySelectorAll('#modal-edit-ref [data-err]').forEach(el => el.textContent = '');
+
+    // Ouvre la modale
+    openModal('#modal-edit-ref');
+
+  } catch (err) {
+    console.error('Erreur ouverture modale bénéficiaire :', err);
+    showToast('Erreur lors du chargement du bénéficiaire', false);
+  }
+});
     $('#form-edit-ref')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = e.target.querySelector('button[type="submit"]');
