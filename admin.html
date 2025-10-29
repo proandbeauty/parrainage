@@ -69,18 +69,54 @@
     .error{color:#ffb3b3;font-size:12px;min-height:16px}
     .invalid{border-color:#ff6b6b}
 
-    /* ===== Zones scrollables + entêtes collantes ===== */
-    .table-scroll{
-      overflow:auto;
-      border:1px solid var(--divider);
-      border-radius:12px;
-    }
-    .table-scroll thead th{
-      position:sticky;
-      top:0;
-      background:var(--card);
-      z-index:3;
-    }
+    /* === UI ajouté === */
+
+/* 1) Entêtes collantes + conteneurs scrollables */
+.table-scroll{
+  overflow:auto;
+  border:1px solid var(--divider);
+  border-radius:12px;
+}
+.table-scroll thead th{
+  position:sticky;
+  top:0;
+  background:var(--card);
+  z-index:2;
+}
+
+/* 2) Scrollbars modernes & discrètes */
+*{
+  scrollbar-width: thin;                /* Firefox */
+  scrollbar-color: rgba(255,255,255,.18) transparent;
+}
+.table-scroll::-webkit-scrollbar{       /* Chrome/Edge/Safari */
+  width:10px; height:10px;
+}
+.table-scroll::-webkit-scrollbar-thumb{
+  background:linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.12));
+  border-radius:12px;
+  border:2px solid transparent;
+  background-clip: padding-box;
+}
+.table-scroll::-webkit-scrollbar-track{
+  background:transparent;
+}
+
+/* 3) Masquer les indicateurs Page/Offset */
+#comm_hint, #rib_hint { display:none !important; }
+
+/* 4) Petit bouton “œil” */
+.btn-icon{
+  background:#0f141c;
+  border:1px solid var(--stroke);
+  color:#eaf2fb;
+  padding:10px 12px;
+  border-radius:10px;
+  cursor:pointer;
+}
+/* Masque les boutons Export par onglet (on garde la logique JS) */
+#comm_export, #rib_export, #sales_export, #refs_export { display: none !important; }
+
   </style>
 </head>
 <body>
@@ -88,10 +124,15 @@
     <div class="card">
       <h1>Admin — Pro&Beauty</h1>
 
-      <div class="row">
+      <div class="row" style="align-items:center">
         <input id="adm_token" type="password" placeholder="ADMIN_TOKEN (obligatoire)" style="min-width:260px" />
+        <button id="toggle_token" class="btn-icon" title="Afficher / masquer le token">👁</button>
+      
         <input id="adm_search" type="text" placeholder="Recherche globale (nom, email, code, commande, IBAN…)" style="flex:1" />
+      
         <button id="adm_reload" class="btn-ghost">Recharger</button>
+        <!-- Bouton Export fixe et unique -->
+        <button id="export_fixed" class="btn-ghost" title="Exporter les données de l’onglet actif">Exporter CSV</button>
       </div>
       <div id="adm_msg" class="muted" style="margin-bottom:8px"></div>
 
@@ -173,9 +214,6 @@
         <div class="row">
           <input id="sales_from" type="date" />
           <input id="sales_to" type="date" />
-          <input id="sales_cp" type="text" placeholder="Code postal contient…" style="min-width:160px" />
-          <input id="sales_amt_min" type="number" step="0.01" placeholder="Montant min" style="min-width:140px" />
-          <input id="sales_amt_max" type="number" step="0.01" placeholder="Montant max" style="min-width:140px" />
           <button id="sales_export" class="btn-ghost">Exporter CSV</button>
           <button id="sales_add" class="btn-ghost">Ajouter une vente</button>
         </div>
@@ -188,11 +226,10 @@
                 <th>N° commande</th>
                 <th>Institut</th>
                 <th>Professionnel</th>
-                <th>Code postal</th>
-                <th>Montant</th>
+                <th>Code postal</th>                
               </tr>
             </thead>
-            <tbody id="sales_tbody"><tr><td colspan="6" class="muted">Chargement…</td></tr></tbody>
+            <tbody id="sales_tbody"><tr><td colspan="5" class="muted">Chargement…</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -294,17 +331,12 @@
           <small class="error" data-err="institute_name"></small>
         </div>
         <div class="row field">
-          <input name="pro_name" placeholder="Professionnel" required />
+          <input name="pro_name" placeholder="Nom et prénom du professionnel" required />
           <small class="error" data-err="pro_name"></small>
         </div>
         <div class="row field">
           <input name="postal_code" placeholder="Code postal (5 chiffres)" inputmode="numeric" maxlength="5" required />
           <small class="error" data-err="postal_code"></small>
-        </div>
-        <div class="row field">
-          <input name="amount" type="number" step="0.01" min="0.01" placeholder="Montant" list="amounts_list" required />
-          <datalist id="amounts_list"></datalist>
-          <small class="error" data-err="amount"></small>
         </div>
         <div class="row field">
           <input name="referral_code" placeholder="Code parrain" required />
@@ -495,7 +527,6 @@
               </td>
               <td>
                 <div>Commande: <b>${s.order_id||'-'}</b></div>
-                <div class="muted">Montant: ${s.amount!=null?Number(s.amount).toFixed(2)+' '+(s.currency||''):'-'}</div>
                 <div class="muted">${s.created_at?new Date(s.created_at).toLocaleString():''}</div>
               </td>
               <td>
@@ -721,6 +752,11 @@
       });
     });
 
+    document.getElementById('toggle_token')?.addEventListener('click', ()=>{
+  const el = document.getElementById('adm_token');
+  el.type = (el.type === 'password') ? 'text' : 'password';
+});
+
     ribTbody.addEventListener('click', (e)=>{
       const p=e.target.closest('button[data-proof]'); if(p){ openProof(p.dataset.proof); return; }
       const b=e.target.closest('button[data-rib]'); if(!b) return;
@@ -760,24 +796,22 @@
     const salesTbody = $('#sales_tbody');
     const salesFrom = $('#sales_from');
     const salesTo = $('#sales_to');
-    const salesCp = $('#sales_cp');
-    const salesAmtMin = $('#sales_amt_min');
-    const salesAmtMax = $('#sales_amt_max');
-    let salesOffset = 0;
+    const salesCp = null;
+    const salesAmtMin = null;
+    const salesAmtMax = null;
 
-    [salesFrom, salesTo, salesCp, salesAmtMin, salesAmtMax].forEach(el => { if (el) el.addEventListener('input', debounce(() => loadSales(true), 400)); });
+    [salesFrom, salesTo].forEach(el => { if (el) el.addEventListener('input', debounce(() => loadSales(true), 400)); });
 
     async function loadSales(reset = true) {
       try {
         if (!token()) return;
-        if (reset) { salesOffset = 0; salesTbody.innerHTML = '<tr><td colspan="6" class="muted">Chargement…</td></tr>'; }
+        if (reset) { salesOffset = 0; salesTbody.innerHTML = '<tr><td colspan="5" class="muted">Chargement…</td></tr>'; }
 
         const p = { limit: '50', offset: String(salesOffset) };
         if (salesFrom.value) p.date_from = salesFrom.value;
         if (salesTo.value) p.date_to = salesTo.value;
-        if (salesCp.value.trim()) p.postal = salesCp.value.trim();
-        if (salesAmtMin.value) p.amount_min = salesAmtMin.value;
-        if (salesAmtMax.value) p.amount_max = salesAmtMax.value;
+    // filtres supprimés : rien à faire ici
+
         if (admSearchEl.value.trim()) p.search = admSearchEl.value.trim();
 
         const r = await fetch(`/api/admin/list-sales?${new URLSearchParams(p).toString()}`, { headers: auth() });
@@ -787,7 +821,7 @@
         if (reset) salesTbody.innerHTML = '';
         const items = j.items || [];
         if (items.length === 0 && salesOffset === 0) {
-          salesTbody.innerHTML = '<tr><td colspan="6" class="muted">Aucune vente.</td></tr>';
+          salesTbody.innerHTML = '<tr><td colspan="5" class="muted">Aucune vente.</td></tr>';
         } else {
           for (const s of items) {
             const tr = document.createElement('tr');
@@ -796,15 +830,14 @@
               <td>${s.order_id || '-'}</td>
               <td>${s.institute_name || ''}</td>
               <td>${s.pro_name || ''}</td>
-              <td>${s.postal_code || ''}</td>
-              <td><b>${Number(s.amount).toFixed(2)} ${s.currency || ''}</b></td>`;
+              <td>${s.postal_code || ''}</td>`;
             salesTbody.appendChild(tr);
           }
         }
         salesOffset = j.nextOffset ?? (salesOffset + items.length);
       } catch (e) {
         console.error('loadSales error:', e);
-        salesTbody.innerHTML = '<tr><td colspan="6" class="muted">Erreur chargement</td></tr>';
+        salesTbody.innerHTML = '<tr><td colspan="5" class="muted">Erreur chargement</td></tr>';
       }
     }
 
@@ -824,12 +857,13 @@
       document.querySelectorAll('#modal-add-sale [data-err]').forEach(el => el.textContent = '');
 
       if (!data.postal_code || data.postal_code.length !== 5) { document.querySelector('#modal-add-sale [data-err="postal_code"]').textContent = 'Code postal doit faire 5 chiffres'; return; }
-      if (!data.amount || parseFloat(data.amount) <= 0) { document.querySelector('#modal-add-sale [data-err="amount"]').textContent = 'Montant invalide'; return; }
       if (!data.institute_name || !data.pro_name || !data.referral_code) { document.querySelector('#modal-add-sale [data-err="form"]').textContent = 'Tous les champs sont requis'; return; }
 
       btn.disabled = true;
       try {
-        const r = await fetch('/api/admin/create-sale', { method: 'POST', headers: { 'Content-Type': 'application/json', ...auth() }, body: JSON.stringify({ ...data, amount: parseFloat(data.amount), currency: 'EUR' }) });
+        const r = await fetch('/api/admin/create-sale', { method: 'POST', headers: { 'Content-Type': 'application/json', ...auth() }, body: JSON.stringify({
+  ...data
+}) });
         const j = await r.json();
         if (!r.ok) { document.querySelector('#modal-add-sale [data-err="form"]').textContent = j.error || 'Erreur'; return; }
         closeModal('#modal-add-sale'); showToast('Vente créée ✅', true); loadSales(true);
@@ -968,6 +1002,19 @@
         document.querySelector('#modal-edit-ref [data-err="form"]').textContent = 'Erreur réseau';
       } finally { btn.disabled = false; }
     });
+
+    // Bouton d'export unique (redirige vers l'export de l'onglet actif)
+document.getElementById('export_fixed')?.addEventListener('click', ()=>{
+  if (currentTab === 'tab_comm') {
+    document.getElementById('comm_export')?.click();
+  } else if (currentTab === 'tab_rib') {
+    document.getElementById('rib_export')?.click();
+  } else if (currentTab === 'tab_sales') {
+    document.getElementById('sales_export')?.click();
+  } else if (currentTab === 'tab_refs') {
+    document.getElementById('refs_export')?.click();
+  }
+});
 
     // EXPORT CSV BENEFICIAIRES
     $('#refs_export')?.addEventListener('click', async () => {
