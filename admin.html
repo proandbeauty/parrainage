@@ -68,6 +68,19 @@
     .field{display:flex;flex-direction:column;gap:6px;min-width:260px}
     .error{color:#ffb3b3;font-size:12px;min-height:16px}
     .invalid{border-color:#ff6b6b}
+
+    /* ===== Zones scrollables + entêtes collantes ===== */
+    .table-scroll{
+      overflow:auto;
+      border:1px solid var(--divider);
+      border-radius:12px;
+    }
+    .table-scroll thead th{
+      position:sticky;
+      top:0;
+      background:var(--card);
+      z-index:3;
+    }
   </style>
 </head>
 <body>
@@ -102,17 +115,21 @@
           <div class="muted" id="comm_hint"></div>
         </div>
         <div id="comm_totals" class="muted" style="margin:6px 0 8px"></div>
-        <table>
-          <thead>
-            <tr>
-              <th>Commission</th>
-              <th>Bénéficiaire</th>
-              <th>Vente</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="comm_tbody"><tr><td colspan="4" class="muted">Chargement…</td></tr></tbody>
-        </table>
+
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Commission</th>
+                <th>Bénéficiaire</th>
+                <th>Vente</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="comm_tbody"><tr><td colspan="4" class="muted">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+
         <div class="row" style="justify-content:flex-end;margin-top:10px">
           <button id="comm_more">Charger +</button>
         </div>
@@ -130,18 +147,22 @@
           <button id="rib_export" class="btn-ghost">Exporter CSV</button>
           <div class="muted" id="rib_hint"></div>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th data-sort="created_at" style="cursor:pointer">RIB ▲▼</th>
-              <th data-sort="referrer">Titulaire</th>
-              <th data-sort="holder_name" style="cursor:pointer">IBAN (titulaire) ▲▼</th>
-              <th>Justificatif</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="rib_tbody"><tr><td colspan="5" class="muted">Chargement…</td></tr></tbody>
-        </table>
+
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th data-sort="created_at" style="cursor:pointer">RIB ▲▼</th>
+                <th data-sort="referrer">Titulaire</th>
+                <th data-sort="holder_name" style="cursor:pointer">IBAN (titulaire) ▲▼</th>
+                <th>Justificatif</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="rib_tbody"><tr><td colspan="5" class="muted">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+
         <div class="row" style="justify-content:flex-end;margin-top:10px">
           <button id="rib_more">Charger +</button>
         </div>
@@ -158,19 +179,22 @@
           <button id="sales_export" class="btn-ghost">Exporter CSV</button>
           <button id="sales_add" class="btn-ghost">Ajouter une vente</button>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>N° commande</th>
-              <th>Institut</th>
-              <th>Professionnel</th>
-              <th>Code postal</th>
-              <th>Montant</th>
-            </tr>
-          </thead>
-          <tbody id="sales_tbody"><tr><td colspan="6" class="muted">Chargement…</td></tr></tbody>
-        </table>
+
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>N° commande</th>
+                <th>Institut</th>
+                <th>Professionnel</th>
+                <th>Code postal</th>
+                <th>Montant</th>
+              </tr>
+            </thead>
+            <tbody id="sales_tbody"><tr><td colspan="6" class="muted">Chargement…</td></tr></tbody>
+          </table>
+        </div>
       </section>
 
       <!-- === BENEFICIAIRES === -->
@@ -185,26 +209,29 @@
           </select>
           <input id="refs_from" type="date" />
           <input id="refs_to" type="date" />
-          <input id="refs_q" type="text" placeholder="Nom/Email/Code contient…" style="flex:1" />
+          <!-- (BARRE SUPPRIMÉE) : la recherche se fait avec #adm_search -->
           <button id="refs_export" class="btn-ghost">Exporter CSV</button>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Commercial</th>
-              <th>Email</th>
-              <th>Téléphone</th>
-              <th>Marque</th>
-              <th>Code</th>
-              <th>Rôle</th>           <!-- NEW -->
-              <th>Code parrain</th>   <!-- NEW -->
-              <th>Statut RIB</th>
-              <th>Dernière activité</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="refs_tbody"><tr><td colspan="8" class="muted">Chargement…</td></tr></tbody>
-        </table>
+
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Commercial</th>
+                <th>Email</th>
+                <th>Téléphone</th>
+                <th>Marque</th>
+                <th>Code</th>
+                <th>Rôle</th>
+                <th>Code parrain</th>
+                <th>Statut RIB</th>
+                <th>Dernière activité</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="refs_tbody"><tr><td colspan="10" class="muted">Chargement…</td></tr></tbody>
+          </table>
+        </div>
       </section>
     </div>
   </div>
@@ -351,28 +378,47 @@
     const admMsg = $('#adm_msg');
     const tabs = document.querySelectorAll('.tab');
 
+    // --- zone scrollable : ajuste à la fenêtre
+    function resizeScrollers(){
+      document.querySelectorAll('.table-scroll').forEach(div=>{
+        const top = div.getBoundingClientRect().top;
+        const h = window.innerHeight - top - 24;
+        div.style.maxHeight = h + 'px';
+      });
+    }
+    window.addEventListener('resize', resizeScrollers);
+    window.addEventListener('load', resizeScrollers);
+
+    // --- mémorisation token
     admTokenEl.value = localStorage.getItem('pnb_admin_token') || '';
     admTokenEl.addEventListener('input', ()=> localStorage.setItem('pnb_admin_token', admTokenEl.value.trim()));
 
+    // --- gestion onglets
+    let currentTab = 'tab_comm';
     tabs.forEach(btn=>{
       btn.addEventListener('click', ()=>{
         tabs.forEach(b=>b.classList.remove('active'));
         btn.classList.add('active');
         document.querySelectorAll('section[id^="tab_"]').forEach(s=>s.classList.add('hide'));
-        document.getElementById(btn.dataset.tab).classList.remove('hide');
-        if (btn.dataset.tab === 'tab_comm') {
-  refreshCommissionTotals();
-}
+        currentTab = btn.dataset.tab;
+        document.getElementById(currentTab).classList.remove('hide');
+        resizeScrollers();
+        // recalcul totaux si commissions
+        if (currentTab === 'tab_comm') refreshCommissionTotals();
       });
     });
 
-    $('#adm_reload')?.addEventListener('click', () => {
-  loadAll(true);               // recharge tout
-  refreshCommissionTotals();   // sécurité : relance le calcul des totaux
-});
-    admSearchEl.addEventListener('input', debounce(() => {
-  loadCommissions(true);
-}, 400));
+    // --- recharger
+    $('#adm_reload')?.addEventListener('click', ()=>{ loadAll(true); refreshCommissionTotals(); });
+
+    // --- recherche globale : met à jour l'onglet ACTIF en live
+    admSearchEl.addEventListener('input', debounce(()=>{
+      if (currentTab === 'tab_comm') { loadCommissions(true); refreshCommissionTotals(); }
+      else if (currentTab === 'tab_rib') { loadRibs(true); }
+      else if (currentTab === 'tab_sales') { loadSales(true); }
+      else if (currentTab === 'tab_refs') { loadReferrers(true); }
+    }, 400));
+
     admTokenEl.addEventListener('input', debounce(()=> loadAll(true), 300));
 
     // ===================== COMMISSIONS =====================
@@ -382,7 +428,7 @@
     const commHint = $('#comm_hint');
     let commPage=1, commLimit=50, commHasMore=true, commOffset=0, commLastBatch=[];
 
-    commStatusEl.addEventListener('change', ()=> loadCommissions(true));
+    commStatusEl.addEventListener('change', ()=> { loadCommissions(true); refreshCommissionTotals(); });
 
     function commNormalize(item){
       if (!item.beneficiary && !item.sale) {
@@ -470,7 +516,6 @@
         commMoreBtn.disabled=!commHasMore;
         commMoreBtn.textContent=commHasMore?'Charger +':'Plus de résultats';
         commHint.textContent=`Page ${commPage-1}`;
-        await refreshCommissionTotals();
       }catch(e){ admMsg.textContent='Erreur chargement (commissions)'; console.error(e); }
     }
 
@@ -495,14 +540,13 @@
       const btn=e.target.closest('button[data-comm]'); if(!btn) return;
       const id = btn.dataset.id, to = btn.dataset.comm;
       btn.disabled = true; btn.style.opacity = .7;
-      fetch('/api/admin/set-commission-status',{
-        method:'POST',headers:{'Content-Type':'application/json',...auth()},body:JSON.stringify({commission_id:id,status:to})
-      })
+      fetch('/api/admin/set-commission-status',{method:'POST',headers:{'Content-Type':'application/json',...auth()},body:JSON.stringify({commission_id:id,status:to})})
         .then(r=>r.json().then(j=>({ok:r.ok,j})))
         .then(({ok,j})=>{
           if(!ok){ btn.disabled=false; btn.style.opacity=1; showToast(j.error||'Erreur', false); return; }
           updateCommissionRowUI(btn, to);
           showToast(to==='approved'?'Commission approuvée ✅':'Commission marquée payée 💸', true);
+          refreshCommissionTotals();
         })
         .catch(()=>{ btn.disabled=false; btn.style.opacity=1; showToast('Erreur réseau', false); });
     });
@@ -511,10 +555,7 @@
 
     document.getElementById('comm_export').addEventListener('click', async ()=>{
       try{
-        const p = {
-          search: admSearchEl.value.trim(),
-          ...(commStatusEl.value!=='all' ? { status: commStatusEl.value } : {})
-        };
+        const p = { search: admSearchEl.value.trim(), ...(commStatusEl.value!=='all' ? { status: commStatusEl.value } : {}) };
         const url = `/api/admin/export-commissions?${new URLSearchParams(p).toString()}`;
         const res = await fetch(url, { headers: auth() });
         if (res.ok) {
@@ -553,114 +594,77 @@
     });
 
     async function fetchAllCommissionsForExport() {
-  const out = [];
+      const out = [];
+      const base = { search: admSearchEl.value.trim() };
+      if (commStatusEl && commStatusEl.value !== 'all') base.status = commStatusEl.value;
 
-  // 👇 Paramètres communs aux 2 boucles (recherche + statut)
-  const base = { search: admSearchEl.value.trim() };
-  if (commStatusEl && commStatusEl.value !== 'all') {
-    base.status = commStatusEl.value;
-  }
+      let page = 1, limit = 200, keep = true;
+      while (keep && page <= 500) {
+        const p = { ...base, page: String(page), limit: String(limit) };
+        const r = await fetch(`/api/admin/list-commissions?${new URLSearchParams(p).toString()}`, { headers: auth() });
+        if (r.status === 400 || r.status === 404 || r.status === 422) { keep = false; break; }
+        const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Erreur liste commissions');
+        const batch = Array.isArray(j.items) ? j.items : (Array.isArray(j.rows) ? j.rows : []);
+        out.push(...batch.map(commNormalize));
+        if (j.hasMore === false || batch.length < limit) break;
+        page++;
+      }
+      if (out.length) return out;
 
-  // --- Boucle page/limit ---
-  let page = 1, limit = 200, keep = true;
-  while (keep && page <= 500) {
-    const p = { ...base, page: String(page), limit: String(limit) };
-    const r = await fetch(`/api/admin/list-commissions?${new URLSearchParams(p).toString()}`, { headers: auth() });
-    if (r.status === 400 || r.status === 404 || r.status === 422) { keep = false; break; }
-    const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Erreur liste commissions');
-    const batch = Array.isArray(j.items) ? j.items : (Array.isArray(j.rows) ? j.rows : []);
-    out.push(...batch.map(commNormalize));
-    if (j.hasMore === false || batch.length < limit) break;
-    page++;
-  }
-  if (out.length) return out;
-
-  // --- Boucle offset/limit ---
-  let offset = 0;
-  keep = true;
-  while (keep && offset <= 20000) {
-    const p = { ...base, offset: String(offset), limit: '500' };
-    const r = await fetch(`/api/admin/list-commissions?${new URLSearchParams(p).toString()}`, { headers: auth() });
-    const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Erreur liste commissions (offset)');
-    const batch = Array.isArray(j.items) ? j.items : (Array.isArray(j.rows) ? j.rows : []);
-    out.push(...batch.map(commNormalize));
-    if (!batch.length) break;
-    offset = j.nextOffset != null ? j.nextOffset : (offset + batch.length);
-  }
-  return out;
-}
-    // ====== Totaux Commissions (pour le filtre en cours) ======
-const commTotalsEl = document.getElementById('comm_totals');
-
-function fmtMoney(amount, currency = 'EUR') {
-  const n = Number(amount || 0);
-  try {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(n);
-  } catch {
-    return `${n.toFixed(2)} ${currency}`;
-  }
-}
-
-async function refreshCommissionTotals() {
-  if (!commTotalsEl) return;
-  if (!token()) { commTotalsEl.textContent = ''; return; }
-
-  // Indicateur de calcul
-  commTotalsEl.textContent = 'Calcul des totaux…';
-
-  try {
-    // Récupère toutes les commissions correspondant à la recherche + statut
-    const rows = await fetchAllCommissionsForExport();
-
-    // Agrège par statut
-    const totals = {
-      pending:  { count: 0, sum: 0 },
-      approved: { count: 0, sum: 0 },
-      paid:     { count: 0, sum: 0 },
-      other:    { count: 0, sum: 0 }, // si jamais il y a d’autres statuts
-      all:      { count: 0, sum: 0 },
-    };
-    const currencies = new Set();
-
-    for (const c0 of rows) {
-      const c = c0.beneficiary || c0.sale ? c0 : { // sécurité si pas normalisé
-        amount: c0.commission_amount ?? c0.amount,
-        currency: c0.commission_currency ?? c0.currency,
-        status: c0.status
-      };
-      const cur = c.currency || 'EUR';
-      currencies.add(cur);
-
-      const amt = Number(c.amount || 0);
-      totals.all.count += 1;
-      totals.all.sum   += amt;
-
-      const key = (c.status === 'pending' || c.status === 'approved' || c.status === 'paid')
-        ? c.status : 'other';
-      totals[key].count += 1;
-      totals[key].sum   += amt;
+      let offset = 0; keep = true;
+      while (keep && offset <= 20000) {
+        const p = { ...base, offset: String(offset), limit: '500' };
+        const r = await fetch(`/api/admin/list-commissions?${new URLSearchParams(p).toString()}`, { headers: auth() });
+        const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Erreur liste commissions (offset)');
+        const batch = Array.isArray(j.items) ? j.items : (Array.isArray(j.rows) ? j.rows : []);
+        out.push(...batch.map(commNormalize));
+        if (!batch.length) break;
+        offset = j.nextOffset != null ? j.nextOffset : (offset + batch.length);
+      }
+      return out;
     }
 
-    // Rendu
-    const currency = currencies.size === 1 ? [...currencies][0] : 'EUR';
-    const mixed = currencies.size > 1;
-
-    commTotalsEl.innerHTML = rows.length === 0
-      ? 'Aucune commission pour le filtre en cours.'
-      : [
-          `<b>Totaux filtrés</b> : ${totals.all.count} commissions`,
-          `• <b>En attente</b> : ${totals.pending.count} (${fmtMoney(totals.pending.sum, currency)})`,
-          `• <b>Approuvées</b> : ${totals.approved.count} (${fmtMoney(totals.approved.sum, currency)})`,
-          `• <b>Payées</b> : ${totals.paid.count} (${fmtMoney(totals.paid.sum, currency)})`,
-          `• <b>Total</b> : ${fmtMoney(totals.all.sum, currency)}`
-        ].join('   |   ')
-        + (mixed ? ' <span class="pill warn">Devises mixtes</span>' : '');
-
-  } catch (err) {
-    console.error('refreshCommissionTotals error:', err);
-    commTotalsEl.textContent = 'Impossible de calculer les totaux.';
-  }
-}
+    // ====== Totaux Commissions ======
+    const commTotalsEl = document.getElementById('comm_totals');
+    function fmtMoney(amount, currency='EUR'){
+      const n = Number(amount || 0);
+      try{ return new Intl.NumberFormat('fr-FR',{style:'currency',currency}).format(n); }
+      catch{ return `${n.toFixed(2)} ${currency}`; }
+    }
+    async function refreshCommissionTotals(){
+      if (!commTotalsEl) return;
+      if (!token()) { commTotalsEl.textContent=''; return; }
+      commTotalsEl.textContent = 'Calcul des totaux…';
+      try{
+        const rows = await fetchAllCommissionsForExport();
+        const totals = {
+          pending:{count:0,sum:0}, approved:{count:0,sum:0}, paid:{count:0,sum:0}, other:{count:0,sum:0}, all:{count:0,sum:0}
+        };
+        const currencies = new Set();
+        for (const c0 of rows){
+          const c = c0.beneficiary || c0.sale ? c0 : { amount:c0.commission_amount ?? c0.amount, currency:c0.commission_currency ?? c0.currency, status:c0.status };
+          const cur=c.currency||'EUR'; currencies.add(cur);
+          const amt=Number(c.amount||0);
+          totals.all.count++; totals.all.sum+=amt;
+          const key=(c.status==='pending'||c.status==='approved'||c.status==='paid')?c.status:'other';
+          totals[key].count++; totals[key].sum+=amt;
+        }
+        const currency = currencies.size===1 ? [...currencies][0] : 'EUR';
+        const mixed = currencies.size>1;
+        commTotalsEl.innerHTML = rows.length===0
+          ? 'Aucune commission pour le filtre en cours.'
+          : [
+              `<b>Totaux filtrés</b> : ${totals.all.count} commissions`,
+              `• <b>En attente</b> : ${totals.pending.count} (${fmtMoney(totals.pending.sum, currency)})`,
+              `• <b>Approuvées</b> : ${totals.approved.count} (${fmtMoney(totals.approved.sum, currency)})`,
+              `• <b>Payées</b> : ${totals.paid.count} (${fmtMoney(totals.paid.sum, currency)})`,
+              `• <b>Total</b> : ${fmtMoney(totals.all.sum, currency)}`
+            ].join('   |   ') + (mixed ? ' <span class="pill warn">Devises mixtes</span>' : '');
+      }catch(err){
+        console.error('refreshCommissionTotals error:', err);
+        commTotalsEl.textContent = 'Impossible de calculer les totaux.';
+      }
+    }
 
     // ===================== RIB =====================
     const ribTbody=$('#rib_tbody'), ribStatusEl=$('#rib_status'), ribMoreBtn=$('#rib_more'), ribExportBtn=$('#rib_export'), ribHint=$('#rib_hint');
@@ -697,13 +701,9 @@ async function refreshCommissionTotals() {
               + '<td><div><b>'+ maskIban(row.iban_masked||row.iban||'') +'</b></div><div class="muted">'+ (row.bic?('BIC: '+row.bic):'') +'</div><div class="muted">'+ (row.holder_name?('Titulaire: '+row.holder_name):'') +'</div></td>'
               + '<td>'+ (row.doc_path?('<button class="btn-ghost" data-proof="'+row.id+'">Voir justificatif</button>'):'<span class="muted">—</span>') +'</td>'
               + '<td>'
-                  + (row.status==='approved'
-                      ? '<button class="btn-done" disabled>Validé ✓</button>'
-                      : '<button class="btn-ghost" data-rib="approved" data-id="'+row.id+'">Valider</button>')
+                  + (row.status==='approved' ? '<button class="btn-done" disabled>Validé ✓</button>' : '<button class="btn-ghost" data-rib="approved" data-id="'+row.id+'">Valider</button>')
                   + ' '
-                  + (row.status==='rejected'
-                      ? '<button class="btn-done" disabled>Rejeté ✓</button>'
-                      : '<button class="btn-red" data-rib="rejected" data-id="'+row.id+'">Rejeter</button>')
+                  + (row.status==='rejected' ? '<button class="btn-done" disabled>Rejeté ✓</button>' : '<button class="btn-red" data-rib="rejected" data-id="'+row.id+'">Rejeter</button>')
               + '</td>';
             ribTbody.appendChild(tr);
           }
@@ -711,23 +711,6 @@ async function refreshCommissionTotals() {
         ribOffset=j.nextOffset ?? (ribOffset+ribLastBatch.length);
         refreshRibHeaders(); ribHint.textContent=`Offset ${ribOffset}`;
       }catch(e){ admMsg.textContent='Erreur chargement (RIB)'; console.error(e); }
-    }
-
-    function updateRibRowUI(btn, newStatus){
-      const tr = btn.closest('tr');
-      const pill = tr.querySelector('[data-pill="rib"]');
-      setPill(pill, newStatus);
-      const [b1, b2] = tr.querySelectorAll('td:last-child button');
-      if(newStatus==='approved'){
-        if(b1){ b1.textContent='Validé ✓'; b1.className='btn-done'; b1.disabled=true; }
-        if(b2){ b2.classList.remove('btn-done'); b2.disabled=false; }
-        tr.classList.add('flash-ok'); showToast('RIB validé ✅', true);
-      } else if(newStatus==='rejected'){
-        if(b2){ b2.textContent='Rejeté ✓'; b2.className='btn-done'; b2.disabled=true; }
-        if(b1){ b1.className='btn-ghost'; b1.disabled=false; b1.textContent='Valider'; }
-        tr.classList.add('flash-bad'); showToast('RIB rejeté ❌', false);
-      }
-      setTimeout(()=> tr.classList.remove('flash-ok','flash-bad'),1500);
     }
 
     document.querySelectorAll('th[data-sort]').forEach(th=>{
@@ -747,7 +730,9 @@ async function refreshCommissionTotals() {
         .then(r=>r.json().then(j=>({ok:r.ok,j})))
         .then(({ok,j})=>{
           if(!ok){ b.disabled=false; b.style.opacity=1; showToast(j.error||'Erreur', false); return; }
-          updateRibRowUI(b, to);
+          const tr=b.closest('tr'); const pill=tr.querySelector('[data-pill="rib"]');
+          setPill(pill,to);
+          showToast(to==='approved'?'RIB validé ✅':'RIB rejeté ❌', to==='approved');
         })
         .catch(()=>{ b.disabled=false; b.style.opacity=1; showToast('Erreur réseau', false); });
     });
@@ -757,19 +742,11 @@ async function refreshCommissionTotals() {
         if (!token()) { alert('Saisissez le token admin.'); return; }
         const r = await fetch(`/api/admin/ribs-proof?id=${encodeURIComponent(rib_id)}`, { headers: auth() });
         const text = await r.text();
-        let j = {};
-        try { j = text ? JSON.parse(text) : {}; } catch { j = { error: text || '' }; }
-        if (!r.ok) {
-          const msg = (j.error || `Erreur HTTP ${r.status}`) + (j.detail ? `\n${j.detail}` : '');
-          alert(msg || 'Justificatif indisponible');
-          return;
-        }
+        let j = {}; try { j = text ? JSON.parse(text) : {}; } catch { j = { error: text || '' }; }
+        if (!r.ok) { alert((j.error || `Erreur HTTP ${r.status}`) + (j.detail ? `\n${j.detail}` : '')); return; }
         if (!j.url) { alert('Lien justificatif manquant.'); return; }
         window.open(j.url, '_blank', 'noopener');
-      }catch(e){
-        console.error('openProof error:', e);
-        alert('Impossible d’ouvrir le justificatif.');
-      }
+      }catch(e){ console.error('openProof error:', e); alert('Impossible d’ouvrir le justificatif.'); }
     }
 
     ribMoreBtn.addEventListener('click', ()=> loadRibs(false));
@@ -788,17 +765,12 @@ async function refreshCommissionTotals() {
     const salesAmtMax = $('#sales_amt_max');
     let salesOffset = 0;
 
-    [salesFrom, salesTo, salesCp, salesAmtMin, salesAmtMax].forEach(el => {
-      if (el) el.addEventListener('input', debounce(() => loadSales(true), 400));
-    });
+    [salesFrom, salesTo, salesCp, salesAmtMin, salesAmtMax].forEach(el => { if (el) el.addEventListener('input', debounce(() => loadSales(true), 400)); });
 
     async function loadSales(reset = true) {
       try {
         if (!token()) return;
-        if (reset) {
-          salesOffset = 0;
-          salesTbody.innerHTML = '<tr><td colspan="6" class="muted">Chargement…</td></tr>';
-        }
+        if (reset) { salesOffset = 0; salesTbody.innerHTML = '<tr><td colspan="6" class="muted">Chargement…</td></tr>'; }
 
         const p = { limit: '50', offset: String(salesOffset) };
         if (salesFrom.value) p.date_from = salesFrom.value;
@@ -814,7 +786,6 @@ async function refreshCommissionTotals() {
 
         if (reset) salesTbody.innerHTML = '';
         const items = j.items || [];
-
         if (items.length === 0 && salesOffset === 0) {
           salesTbody.innerHTML = '<tr><td colspan="6" class="muted">Aucune vente.</td></tr>';
         } else {
@@ -826,8 +797,7 @@ async function refreshCommissionTotals() {
               <td>${s.institute_name || ''}</td>
               <td>${s.pro_name || ''}</td>
               <td>${s.postal_code || ''}</td>
-              <td><b>${Number(s.amount).toFixed(2)} ${s.currency || ''}</b></td>
-            `;
+              <td><b>${Number(s.amount).toFixed(2)} ${s.currency || ''}</b></td>`;
             salesTbody.appendChild(tr);
           }
         }
@@ -840,11 +810,7 @@ async function refreshCommissionTotals() {
 
     $('#sales_add')?.addEventListener('click', () => {
       const form = $('#form-add-sale');
-      if (form) {
-        form.reset();
-        document.querySelectorAll('#modal-add-sale [data-err]').forEach(el => el.textContent = '');
-        openModal('#modal-add-sale');
-      }
+      if (form) { form.reset(); document.querySelectorAll('#modal-add-sale [data-err]').forEach(el => el.textContent = ''); openModal('#modal-add-sale'); }
     });
 
     $('#form-add-sale')?.addEventListener('submit', async (e) => {
@@ -854,57 +820,27 @@ async function refreshCommissionTotals() {
       if (!token()) { showToast('Token admin requis', false); return; }
 
       const fd = new FormData(form);
-      const data = {};
-      for (const [k, v] of fd.entries()) data[k] = String(v).trim();
-
+      const data = {}; for (const [k, v] of fd.entries()) data[k] = String(v).trim();
       document.querySelectorAll('#modal-add-sale [data-err]').forEach(el => el.textContent = '');
 
-      if (!data.postal_code || data.postal_code.length !== 5) {
-        document.querySelector('#modal-add-sale [data-err="postal_code"]').textContent = 'Code postal doit faire 5 chiffres';
-        return;
-      }
-      if (!data.amount || parseFloat(data.amount) <= 0) {
-        document.querySelector('#modal-add-sale [data-err="amount"]').textContent = 'Montant invalide';
-        return;
-      }
-      if (!data.institute_name || !data.pro_name || !data.referral_code) {
-        document.querySelector('#modal-add-sale [data-err="form"]').textContent = 'Tous les champs sont requis';
-        return;
-      }
+      if (!data.postal_code || data.postal_code.length !== 5) { document.querySelector('#modal-add-sale [data-err="postal_code"]').textContent = 'Code postal doit faire 5 chiffres'; return; }
+      if (!data.amount || parseFloat(data.amount) <= 0) { document.querySelector('#modal-add-sale [data-err="amount"]').textContent = 'Montant invalide'; return; }
+      if (!data.institute_name || !data.pro_name || !data.referral_code) { document.querySelector('#modal-add-sale [data-err="form"]').textContent = 'Tous les champs sont requis'; return; }
 
       btn.disabled = true;
       try {
-        const r = await fetch('/api/admin/create-sale', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...auth() },
-          body: JSON.stringify({
-            ...data,
-            amount: parseFloat(data.amount),
-            currency: 'EUR'
-          })
-        });
+        const r = await fetch('/api/admin/create-sale', { method: 'POST', headers: { 'Content-Type': 'application/json', ...auth() }, body: JSON.stringify({ ...data, amount: parseFloat(data.amount), currency: 'EUR' }) });
         const j = await r.json();
-        if (!r.ok) {
-          document.querySelector('#modal-add-sale [data-err="form"]').textContent = j.error || 'Erreur';
-          return;
-        }
-        closeModal('#modal-add-sale');
-        showToast('Vente créée ✅', true);
-        loadSales(true);
+        if (!r.ok) { document.querySelector('#modal-add-sale [data-err="form"]').textContent = j.error || 'Erreur'; return; }
+        closeModal('#modal-add-sale'); showToast('Vente créée ✅', true); loadSales(true);
       } catch (err) {
         document.querySelector('#modal-add-sale [data-err="form"]').textContent = 'Erreur réseau';
-      } finally {
-        btn.disabled = false;
-      }
+      } finally { btn.disabled = false; }
     });
 
-    // EXPORT CSV VENTES (implémenté)
     $('#sales_export')?.addEventListener('click', async () => {
       try {
-        const p = {
-          limit: '10000',
-          offset: '0'
-        };
+        const p = { limit:'10000', offset:'0' };
         if (salesFrom.value) p.date_from = salesFrom.value;
         if (salesTo.value) p.date_to = salesTo.value;
         if (salesCp.value.trim()) p.postal = salesCp.value.trim();
@@ -921,20 +857,14 @@ async function refreshCommissionTotals() {
 
         const head = ['date','order_id','institut','professionnel','cp','montant','devise'];
         const lines = [head.join(';')];
-
         rows.forEach(s => {
           const line = [
             s.created_at ? new Date(s.created_at).toLocaleString() : '',
-            s.order_id || '',
-            s.institute_name || '',
-            s.pro_name || '',
-            s.postal_code || '',
-            s.amount != null ? Number(s.amount).toFixed(2) : '',
-            s.currency || 'EUR'
+            s.order_id || '', s.institute_name || '', s.pro_name || '',
+            s.postal_code || '', s.amount != null ? Number(s.amount).toFixed(2) : '', s.currency || 'EUR'
           ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(';');
           lines.push(line);
         });
-
         const csv = '\uFEFF' + lines.join('\r\n');
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
         const a = document.createElement('a');
@@ -942,10 +872,7 @@ async function refreshCommissionTotals() {
         a.download = `export-ventes-${todayStr()}.csv`;
         document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
         showToast('Export ventes OK', true);
-      } catch (e) {
-        console.error(e);
-        showToast('Export impossible', false);
-      }
+      } catch (e) { console.error(e); showToast('Export impossible', false); }
     });
 
     // ===================== BENEFICIAIRES =====================
@@ -953,27 +880,20 @@ async function refreshCommissionTotals() {
     const refsRib = $('#refs_rib');
     const refsFrom = $('#refs_from');
     const refsTo = $('#refs_to');
-    const refsQ = $('#refs_q');
     let refsOffset = 0;
 
-    [refsRib, refsFrom, refsTo, refsQ].forEach(el => {
-      if (el) el.addEventListener('input', debounce(() => loadReferrers(true), 400));
-    });
+    [refsRib, refsFrom, refsTo].forEach(el => { if (el) el.addEventListener('input', debounce(() => loadReferrers(true), 400)); });
 
     async function loadReferrers(reset = true) {
       try {
         if (!token()) return;
-        if (reset) {
-          refsOffset = 0;
-          refsTbody.innerHTML = '<tr><td colspan="8" class="muted">Chargement…</td></tr>';
-        }
+        if (reset) { refsOffset = 0; refsTbody.innerHTML = '<tr><td colspan="10" class="muted">Chargement…</td></tr>'; }
 
         const p = { limit: '100', offset: String(refsOffset) };
         if (refsRib.value !== 'all') p.rib = refsRib.value;
         if (refsFrom.value) p.date_from = refsFrom.value;
         if (refsTo.value) p.date_to = refsTo.value;
-        if (refsQ.value.trim()) p.search = refsQ.value.trim();
-        if (admSearchEl.value.trim()) p.search = admSearchEl.value.trim();
+        if (admSearchEl.value.trim()) p.search = admSearchEl.value.trim();   // recherche globale
 
         const r = await fetch(`/api/admin/list-referrers?${new URLSearchParams(p).toString()}`, { headers: auth() });
         const j = await r.json();
@@ -981,170 +901,113 @@ async function refreshCommissionTotals() {
 
         if (reset) refsTbody.innerHTML = '';
         const items = j.items || [];
-
         if (items.length === 0 && refsOffset === 0) {
-          refsTbody.innerHTML = '<tr><td colspan="8" class="muted">Aucun bénéficiaire.</td></tr>';
+          refsTbody.innerHTML = '<tr><td colspan="10" class="muted">Aucun bénéficiaire.</td></tr>';
         } else {
           for (const ref of items) {
-  const tr = document.createElement('tr');
-  const ribPill = ref.rib_status === 'approved'
-    ? 'ok'
-    : ref.rib_status === 'pending'
-    ? 'warn'
-    : ref.rib_status === 'rejected'
-    ? 'bad'
-    : '';
-
-    tr.innerHTML = `
-  <td><b>${(ref.first_name || '') + ' ' + (ref.last_name || '')}</b></td>
-  <td>${ref.email || ''}</td>
-  <td>${ref.phone || '-'}</td>
-  <td>${ref.brand || '-'}</td>
-  <td><code>${ref.code || ''}</code></td>
-  <td>${ref.role || '-'}</td>                          <!-- NEW -->
-  <td>${ref.role === 'filleul' ? (ref.parent_code || '-') : '-'}</td> <!-- NEW -->
-  <td><span class="pill ${ribPill}">${ref.rib_status || 'missing'}</span></td>
-  <td class="muted">${ref.last_activity ? new Date(ref.last_activity).toLocaleDateString() : ''}</td>
-  <td><button class="btn-ghost" data-edit-ref="${ref.id}">Modifier</button></td>
-`;
-  refsTbody.appendChild(tr);
-}
+            const tr = document.createElement('tr');
+            const ribPill = ref.rib_status==='approved'?'ok':ref.rib_status==='pending'?'warn':ref.rib_status==='rejected'?'bad':'';
+            tr.innerHTML = `
+              <td><b>${(ref.first_name || '') + ' ' + (ref.last_name || '')}</b></td>
+              <td>${ref.email || ''}</td>
+              <td>${ref.phone || '-'}</td>
+              <td>${ref.brand || '-'}</td>
+              <td><code>${ref.code || ''}</code></td>
+              <td>${ref.role || '-'}</td>
+              <td>${ref.role === 'filleul' ? (ref.parent_code || '-') : '-'}</td>
+              <td><span class="pill ${ribPill}">${ref.rib_status || 'missing'}</span></td>
+              <td class="muted">${ref.last_activity ? new Date(ref.last_activity).toLocaleDateString() : ''}</td>
+              <td><button class="btn-ghost" data-edit-ref="${ref.id}">Modifier</button></td>`;
+            refsTbody.appendChild(tr);
+          }
         }
         refsOffset = j.nextOffset ?? (refsOffset + items.length);
       } catch (e) {
         console.error('loadReferrers error:', e);
-        refsTbody.innerHTML = '<tr><td colspan="8" class="muted">Erreur chargement</td></tr>';
+        refsTbody.innerHTML = '<tr><td colspan="10" class="muted">Erreur chargement</td></tr>';
       }
     }
 
     refsTbody.addEventListener('click', async (e) => {
-  const btn = e.target.closest('[data-edit-ref]');
-  if (!btn) return;
+      const btn = e.target.closest('[data-edit-ref]'); if (!btn) return;
+      const refId = btn.dataset.editRef; if (!refId) return;
+      try {
+        const r = await fetch(`/api/admin/list-referrers?id=${encodeURIComponent(refId)}&limit=1`, { headers: auth() });
+        const j = await r.json();
+        if (!r.ok || !j.items || !j.items.length) { showToast('Erreur lors du chargement du bénéficiaire', false); return; }
+        const ref = j.items[0];
+        const form = $('#form-edit-ref');
+        form.querySelector('[name="id"]').value         = ref.id;
+        form.querySelector('[name="first_name"]').value = ref.first_name || '';
+        form.querySelector('[name="last_name"]').value  = ref.last_name  || '';
+        form.querySelector('[name="email"]').value      = ref.email      || '';
+        form.querySelector('[name="phone"]').value      = ref.phone      || '';
+        form.querySelector('[name="brand"]').value      = ref.brand      || '';
+        form.querySelector('[name="code"]').value       = ref.code || ref.referral_code || '';
+        document.querySelectorAll('#modal-edit-ref [data-err]').forEach(el => el.textContent = '');
+        openModal('#modal-edit-ref');
+      } catch (err) {
+        console.error('Erreur ouverture modale bénéficiaire :', err);
+        showToast('Erreur lors du chargement du bénéficiaire', false);
+      }
+    });
 
-  const refId = btn.dataset.editRef;
-  if (!refId) return;
-
-  try {
-    // Requête à l’API pour récupérer la fiche complète (en direct depuis Supabase)
-    const r = await fetch(`/api/admin/list-referrers?id=${encodeURIComponent(refId)}&limit=1`, { headers: auth() });
-    const j = await r.json();
-
-    if (!r.ok || !j.items || !j.items.length) {
-      showToast('Erreur lors du chargement du bénéficiaire', false);
-      return;
-    }
-
-    const ref = j.items[0];
-    const form = $('#form-edit-ref');
-    form.querySelector('[name="id"]').value         = ref.id;
-    form.querySelector('[name="first_name"]').value = ref.first_name || '';
-    form.querySelector('[name="last_name"]').value  = ref.last_name  || '';
-    form.querySelector('[name="email"]').value      = ref.email      || '';
-    form.querySelector('[name="phone"]').value      = ref.phone      || '';
-    form.querySelector('[name="brand"]').value      = ref.brand      || '';
-    form.querySelector('[name="code"]').value       = ref.code || ref.referral_code || '';
-
-    // 🧹 Nettoie les anciens messages d’erreur
-    document.querySelectorAll('#modal-edit-ref [data-err]').forEach(el => el.textContent = '');
-
-    // Ouvre la modale
-    openModal('#modal-edit-ref');
-
-  } catch (err) {
-    console.error('Erreur ouverture modale bénéficiaire :', err);
-    showToast('Erreur lors du chargement du bénéficiaire', false);
-  }
-});
     $('#form-edit-ref')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const btn = e.target.querySelector('button[type="submit"]');
-      btn.disabled = true;
+      const btn = e.target.querySelector('button[type="submit"]'); btn.disabled = true;
       const fd = new FormData(e.target);
       const data = { id: fd.get('id') };
       for (const [k, v] of fd.entries()) if (k !== 'id' && k !== 'code') data[k] = String(v).trim();
 
       try {
-        const r = await fetch('/api/admin/referrers-update', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...auth() },
-          body: JSON.stringify(data)
-        });
+        const r = await fetch('/api/admin/referrers-update', { method: 'POST', headers: { 'Content-Type': 'application/json', ...auth() }, body: JSON.stringify(data) });
         const j = await r.json();
-        if (!r.ok) {
-          document.querySelector('#modal-edit-ref [data-err="form"]').textContent = j.error || 'Erreur';
-          return;
-        }
-        closeModal('#modal-edit-ref');
-        showToast('Bénéficiaire modifié ✅', true);
-        loadReferrers(true);
+        if (!r.ok) { document.querySelector('#modal-edit-ref [data-err="form"]').textContent = j.error || 'Erreur'; return; }
+        closeModal('#modal-edit-ref'); showToast('Bénéficiaire modifié ✅', true); loadReferrers(true);
       } catch (err) {
         document.querySelector('#modal-edit-ref [data-err="form"]').textContent = 'Erreur réseau';
-      } finally {
-        btn.disabled = false;
-      }
+      } finally { btn.disabled = false; }
     });
 
-// EXPORT CSV BENEFICIAIRES (implémenté)
-$('#refs_export')?.addEventListener('click', async () => {
-  try {
-    const p = { limit: '10000', offset: '0' };
-    if (refsRib.value !== 'all') p.rib = refsRib.value;
-    if (refsFrom.value) p.date_from = refsFrom.value;
-    if (refsTo.value)   p.date_to   = refsTo.value;
-    const q = (refsQ.value || admSearchEl.value || '').trim();
-    if (q) p.search = q;
+    // EXPORT CSV BENEFICIAIRES
+    $('#refs_export')?.addEventListener('click', async () => {
+      try {
+        const p = { limit: '10000', offset: '0' };
+        if (refsRib.value !== 'all') p.rib = refsRib.value;
+        if (refsFrom.value) p.date_from = refsFrom.value;
+        if (refsTo.value)   p.date_to   = refsTo.value;
+        const q = (admSearchEl.value || '').trim(); if (q) p.search = q;
 
-    const r = await fetch(`/api/admin/list-referrers?${new URLSearchParams(p).toString()}`, { headers: auth() });
-    const j = await r.json();
-    if (!r.ok) { showToast(j.error || 'Export impossible', false); return; }
+        const r = await fetch(`/api/admin/list-referrers?${new URLSearchParams(p).toString()}`, { headers: auth() });
+        const j = await r.json(); if (!r.ok) { showToast(j.error || 'Export impossible', false); return; }
 
-    const rows = Array.isArray(j.items) ? j.items : [];
-    if (!rows.length) { showToast('Aucune donnée à exporter', false); return; }
+        const rows = Array.isArray(j.items) ? j.items : [];
+        if (!rows.length) { showToast('Aucune donnée à exporter', false); return; }
 
-    // En-têtes CSV (ajout Rôle + Code parrain)
-    const head = [
-  'Commercial','Email','Téléphone','Marque','Code',
-  'Rôle','Code parrain','Statut RIB','Dernière activité'
-];
-const lines = [head.join(';')];
+        const head = ['Commercial','Email','Téléphone','Marque','Code','Rôle','Code parrain','Statut RIB','Dernière activité'];
+        const lines = [head.join(';')];
+        rows.forEach(x => {
+          const line = [
+            `${(x.first_name||'')} ${(x.last_name||'')}`.trim(),
+            x.email || '', x.phone || '', x.brand || '', x.code || '',
+            x.role || '', x.role === 'filleul' ? (x.parent_code || '') : '',
+            x.rib_status || 'missing',
+            x.last_activity ? new Date(x.last_activity).toLocaleString() : ''
+          ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(';');
+          lines.push(line);
+        });
+        const csv  = '\uFEFF' + lines.join('\r\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        const a    = document.createElement('a');
+        a.href     = URL.createObjectURL(blob);
+        a.download = `export-beneficiaires-${todayStr()}.csv`;
+        document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
+      } catch (e) { console.error(e); showToast('Export impossible', false); }
+    });
 
-rows.forEach(x => {
-  const line = [
-    `${(x.first_name||'')} ${(x.last_name||'')}`.trim(),
-    x.email || '',
-    x.phone || '',
-    x.brand || '',
-    x.code || '',
-    x.role || '',
-    x.role === 'filleul' ? (x.parent_code || '') : '',
-    x.rib_status || 'missing',
-    x.last_activity ? new Date(x.last_activity).toLocaleString() : ''
-  ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(';');
-  lines.push(line);
-});
-
-    const csv  = '\uFEFF' + lines.join('\r\n'); // BOM pour Excel
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const a    = document.createElement('a');
-    a.href     = URL.createObjectURL(blob);
-    a.download = `export-beneficiaires-${todayStr()}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    URL.revokeObjectURL(a.href);
-    a.remove();
-  } catch (e) {
-    console.error(e);
-    showToast('Export impossible', false);
-  }
-});
-
-    function loadAll(reset) {
-      loadCommissions(reset);
-      loadRibs(reset);
-      loadSales(reset);
-      loadReferrers(reset);
-    }
-    if (token()) { loadAll(true); }
+    // charge tout au départ
+    function loadAll(reset){ loadCommissions(reset); loadRibs(reset); loadSales(reset); loadReferrers(reset); resizeScrollers(); }
+    if (token()) { loadAll(true); refreshCommissionTotals(); }
   </script>
 </body>
 </html>
