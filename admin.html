@@ -872,42 +872,39 @@
       } finally { btn.disabled = false; }
     });
 
-    $('#sales_export')?.addEventListener('click', async () => {
-      try {
-        const p = { limit:'10000', offset:'0' };
-        if (salesFrom.value) p.date_from = salesFrom.value;
-        if (salesTo.value) p.date_to = salesTo.value;
-        if (salesCp.value.trim()) p.postal = salesCp.value.trim();
-        if (salesAmtMin.value) p.amount_min = salesAmtMin.value;
-        if (salesAmtMax.value) p.amount_max = salesAmtMax.value;
-        if (admSearchEl.value.trim()) p.search = admSearchEl.value.trim();
+    document.getElementById('sales_export')?.addEventListener('click', async () => {
+  try {
+    const p = { limit:'10000', offset:'0' };
+    if (salesFrom.value) p.date_from = salesFrom.value;
+    if (salesTo.value)   p.date_to   = salesTo.value;
+    if (admSearchEl.value.trim()) p.search = admSearchEl.value.trim();
 
-        const r = await fetch(`/api/admin/list-sales?${new URLSearchParams(p).toString()}`, { headers: auth() });
-        const j = await r.json();
-        if (!r.ok) { showToast(j.error || 'Export impossible', false); return; }
+    const r = await fetch(`/api/admin/list-sales?${new URLSearchParams(p).toString()}`, { headers: auth() });
+    const j = await r.json();
+    if (!r.ok) { showToast(j.error || 'Export impossible', false); return; }
 
-        const rows = Array.isArray(j.items) ? j.items : [];
-        if (!rows.length) { showToast('Aucune vente à exporter', false); return; }
+    const rows = Array.isArray(j.items) ? j.items : [];
+    if (!rows.length) { showToast('Aucune vente à exporter', false); return; }
 
-        const head = ['date','order_id','institut','professionnel','cp','montant','devise'];
-        const lines = [head.join(';')];
-        rows.forEach(s => {
-          const line = [
-            s.created_at ? new Date(s.created_at).toLocaleString() : '',
-            s.order_id || '', s.institute_name || '', s.pro_name || '',
-            s.postal_code || '', s.amount != null ? Number(s.amount).toFixed(2) : '', s.currency || 'EUR'
-          ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(';');
-          lines.push(line);
-        });
-        const csv = '\uFEFF' + lines.join('\r\n');
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `export-ventes-${todayStr()}.csv`;
-        document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
-        showToast('Export ventes OK', true);
-      } catch (e) { console.error(e); showToast('Export impossible', false); }
+    const head = ['date','order_id','institut','professionnel','cp','montant','devise'];
+    const lines = [head.join(';')];
+    rows.forEach(s => {
+      const line = [
+        s.created_at ? new Date(s.created_at).toLocaleString() : '',
+        s.order_id || '', s.institute_name || '', s.pro_name || '',
+        s.postal_code || '', s.amount != null ? Number(s.amount).toFixed(2) : '', s.currency || 'EUR'
+      ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(';');
+      lines.push(line);
     });
+    const csv = '\uFEFF' + lines.join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `export-ventes-${todayStr()}.csv`;
+    document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
+    showToast('Export ventes OK', true);
+  } catch (e) { console.error(e); showToast('Export impossible', false); }
+});
 
     // ===================== BENEFICIAIRES =====================
     const refsTbody = $('#refs_tbody');
