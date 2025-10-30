@@ -799,6 +799,7 @@
     const salesCp = null;
     const salesAmtMin = null;
     const salesAmtMax = null;
+    let salesOffset = 0;
 
     [salesFrom, salesTo].forEach(el => { if (el) el.addEventListener('input', debounce(() => loadSales(true), 400)); });
 
