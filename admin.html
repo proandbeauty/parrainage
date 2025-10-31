@@ -863,9 +863,13 @@
     }
 
     $('#sales_add')?.addEventListener('click', () => {
-      const form = $('#form-add-sale');
-      if (form) { form.reset(); document.querySelectorAll('#modal-add-sale [data-err]').forEach(el => el.textContent = ''); openModal('#modal-add-sale'); }
-    });
+  const form = $('#form-add-sale');
+  if (form) {
+    form.reset();
+    document.querySelectorAll('#modal-add-sale [data-err]').forEach(el => el.textContent = '');
+    openModal('#modal-add-sale');
+  }
+});
 
 $('#form-add-sale')?.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -874,14 +878,14 @@ $('#form-add-sale')?.addEventListener('submit', async (e) => {
   const btn  = form.querySelector('button[type="submit"]');
   if (!token()) { showToast('Token admin requis', false); return; }
 
-  // Nettoyage erreurs
+  // Nettoyage erreurs visuelles
   document.querySelectorAll('#modal-add-sale [data-err]').forEach(el => el.textContent = '');
 
   // Lecture + normalisation
   const fd   = new FormData(form);
   const data = Object.fromEntries([...fd.entries()].map(([k,v])=>[k,String(v).trim()]));
 
-  // Validations légères
+  // Validations légères côté UI
   const cpOk = /^\d{5}$/.test(data.postal_code || '');
   if (!cpOk) {
     document.querySelector('#modal-add-sale [data-err="postal_code"]').textContent = 'Code postal invalide (5 chiffres).';
@@ -892,20 +896,27 @@ $('#form-add-sale')?.addEventListener('submit', async (e) => {
     return;
   }
 
-  // Normalisation du code parrain (espaces / casse)
+  // Normalisation du code parrain
   const normRefCode = data.referral_code.replace(/\s+/g,' ').trim();
 
-  // ➜ Remplissage des champs que l’API attend encore
+  // Génère un order_id si vide
+  const autoOrderId = data.order_id
+    ? data.order_id.trim()
+    : `ORDER-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(Math.random()*1e6).toString().padStart(6,'0')}`;
+
+  // Payload “compat”
   const payload = {
-    order_id: data.order_id || null,
+    order_id: autoOrderId,
     institute_name: data.institute_name,
     pro_name: data.pro_name,
     postal_code: data.postal_code,
-    referral_code: normRefCode,
 
-    // Champs "fantômes" attendus par le backend
+    referral_code: normRefCode,
+    code: normRefCode,
+    seller_code: normRefCode,
+
     buyer_email: `client+${Date.now()}@noreply.local`,
-    amount: null,
+    amount: 0,
     currency: 'EUR',
     created_at: new Date().toISOString()
   };
@@ -918,7 +929,9 @@ $('#form-add-sale')?.addEventListener('submit', async (e) => {
       body: JSON.stringify(payload)
     });
 
-    const j = await res.json();
+    // Lecture robuste de la réponse
+    const txt = await res.text();
+    let j = {}; try { j = txt ? JSON.parse(txt) : {}; } catch { j = { error: txt || '' }; }
 
     if (!res.ok) {
       document.querySelector('#modal-add-sale [data-err="form"]').textContent = j.error || 'Erreur serveur';
