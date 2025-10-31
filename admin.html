@@ -472,7 +472,16 @@
           role: item.role,
           created_at: item.commission_created_at || item.created_at,
           beneficiary: { first_name:item.first_name, last_name:item.last_name, email:item.email, referral_code:item.referral_code },
-          sale: { id:item.sale_id, order_id:item.order_id, amount:item.sale_amount, currency:item.sale_currency, created_at:item.sale_created_at }
+          sale: {
+  id:item.sale_id,
+  order_id:item.order_id,
+  amount:item.sale_amount,
+  currency:item.sale_currency,
+  created_at:item.sale_created_at,
+  // ⬇️ nouveaux champs si l’API les expose
+  institute_name: item.institute_name ?? item.sale_institute_name,
+  pro_name:       item.pro_name       ?? item.sale_pro_name
+}
         };
       }
       return item;
@@ -535,9 +544,12 @@ commLastBatch = commLastBatch.filter(c => {
                 <div class="muted">Code: ${b.referral_code||''}</div>
               </td>
               <td>
-                <div>Commande: <b>${s.order_id||'-'}</b></div>
-                <div class="muted">${s.created_at?new Date(s.created_at).toLocaleString():''}</div>
-              </td>
+  <div>Commande: <b>${s.order_id||'-'}</b></div>
+  <div class="muted">${s.created_at?new Date(s.created_at).toLocaleString():''}</div>
+  ${ (s.institute_name || s.pro_name)
+      ? `<div class="muted">${[s.institute_name, s.pro_name].filter(Boolean).join(' — ')}</div>`
+      : '' }
+</td>
               <td>
                 ${c.status==='approved'||c.status==='paid'
                   ? '<button class="btn-done" disabled>Approuvé ✓</button>'
@@ -672,50 +684,56 @@ commLastBatch = commLastBatch.filter(c => {
       catch{ return `${n.toFixed(2)} ${currency}`; }
     }
     async function refreshCommissionTotals(){
-      if (!commTotalsEl) return;
-      if (!token()) { commTotalsEl.textContent=''; return; }
-      commTotalsEl.textContent = 'Calcul des totaux…';
-      try{
-        const rows = await fetchAllCommissionsForExport();
-        // Dédupliquer aussi les totaux
-const seenKeys = new Set();
-const uniqRows = [];
-for (const c0 of rows) {
-  const c = c0.beneficiary || c0.sale ? c0 : { amount:c0.commission_amount ?? c0.amount, currency:c0.commission_currency ?? c0.currency, status:c0.status, role:c0.role, sale:{ id:c0.sale_id, order_id:c0.order_id } };
-  const s = c.sale || {};
-  const key = `${c.role}|${s.id || s.order_id || c.id}`;
-  if (!seenKeys.has(key)) { seenKeys.add(key); uniqRows.push(c0); }
-}
-// et ensuite, parcourez uniqRows au lieu de rows
-const source = uniqRows;
-        const totals = {
-          pending:{count:0,sum:0}, approved:{count:0,sum:0}, paid:{count:0,sum:0}, other:{count:0,sum:0}, all:{count:0,sum:0}
-        };
-        const currencies = new Set();
-        for (const c0 of rows){
-          const c = c0.beneficiary || c0.sale ? c0 : { amount:c0.commission_amount ?? c0.amount, currency:c0.commission_currency ?? c0.currency, status:c0.status };
-          const cur=c.currency||'EUR'; currencies.add(cur);
-          const amt=Number(c.amount||0);
-          totals.all.count++; totals.all.sum+=amt;
-          const key=(c.status==='pending'||c.status==='approved'||c.status==='paid')?c.status:'other';
-          totals[key].count++; totals[key].sum+=amt;
-        }
-        const currency = currencies.size===1 ? [...currencies][0] : 'EUR';
-        const mixed = currencies.size>1;
-        commTotalsEl.innerHTML = rows.length===0
-          ? 'Aucune commission pour le filtre en cours.'
-          : [
-              `<b>Totaux filtrés</b> : ${totals.all.count} commissions`,
-              `• <b>En attente</b> : ${totals.pending.count} (${fmtMoney(totals.pending.sum, currency)})`,
-              `• <b>Approuvées</b> : ${totals.approved.count} (${fmtMoney(totals.approved.sum, currency)})`,
-              `• <b>Payées</b> : ${totals.paid.count} (${fmtMoney(totals.paid.sum, currency)})`,
-              `• <b>Total</b> : ${fmtMoney(totals.all.sum, currency)}`
-            ].join('   |   ') + (mixed ? ' <span class="pill warn">Devises mixtes</span>' : '');
-      }catch(err){
-        console.error('refreshCommissionTotals error:', err);
-        commTotalsEl.textContent = 'Impossible de calculer les totaux.';
-      }
+  if (!commTotalsEl) return;
+  if (!token()) { commTotalsEl.textContent=''; return; }
+  commTotalsEl.textContent = 'Calcul des totaux…';
+  try{
+    const rows = await fetchAllCommissionsForExport();
+
+    // Dédupliquer aussi les totaux
+    const seenKeys = new Set();
+    const uniqRows = [];
+    for (const c0 of rows) {
+      const c = c0.beneficiary || c0.sale
+        ? c0
+        : { amount:c0.commission_amount ?? c0.amount, currency:c0.commission_currency ?? c0.currency, status:c0.status, role:c0.role, sale:{ id:c0.sale_id, order_id:c0.order_id } };
+      const s = c.sale || {};
+      const key = `${c.role}|${s.id || s.order_id || c.id}`;
+      if (!seenKeys.has(key)) { seenKeys.add(key); uniqRows.push(c0); }
     }
+    const source = uniqRows;
+
+    const totals = {
+      pending:{count:0,sum:0}, approved:{count:0,sum:0}, paid:{count:0,sum:0}, other:{count:0,sum:0}, all:{count:0,sum:0}
+    };
+    const currencies = new Set();
+    for (const c0 of source){
+      const c = c0.beneficiary || c0.sale
+        ? c0
+        : { amount:c0.commission_amount ?? c0.amount, currency:c0.commission_currency ?? c0.currency, status:c0.status };
+      const cur=c.currency||'EUR'; currencies.add(cur);
+      const amt=Number(c.amount||0);
+      totals.all.count++; totals.all.sum+=amt;
+      const key=(c.status==='pending'||c.status==='approved'||c.status==='paid')?c.status:'other';
+      totals[key].count++; totals[key].sum+=amt;
+    }
+    const currency = currencies.size===1 ? [...currencies][0] : 'EUR';
+    const mixed = currencies.size>1;
+
+    commTotalsEl.innerHTML = source.length===0
+      ? 'Aucune commission pour le filtre en cours.'
+      : [
+          `<b>Totaux filtrés</b> : ${totals.all.count} commissions`,
+          `• <b>En attente</b> : ${totals.pending.count} (${fmtMoney(totals.pending.sum, currency)})`,
+          `• <b>Approuvées</b> : ${totals.approved.count} (${fmtMoney(totals.approved.sum, currency)})`,
+          `• <b>Payées</b> : ${totals.paid.count} (${fmtMoney(totals.paid.sum, currency)})`,
+          `• <b>Total</b> : ${fmtMoney(totals.all.sum, currency)}`
+        ].join('   |   ') + (mixed ? ' <span class="pill warn">Devises mixtes</span>' : '');
+  }catch(err){
+    console.error('refreshCommissionTotals error:', err);
+    commTotalsEl.textContent = 'Impossible de calculer les totaux.';
+  }
+}
 
     // ===================== RIB =====================
     const ribTbody=$('#rib_tbody'), ribStatusEl=$('#rib_status'), ribMoreBtn=$('#rib_more'), ribExportBtn=$('#rib_export'), ribHint=$('#rib_hint');
