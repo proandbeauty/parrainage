@@ -502,6 +502,15 @@
 
         const items=Array.isArray(j.items)?j.items:(Array.isArray(j.rows)?j.rows:[]);
         commLastBatch=items.map(commNormalize);
+        // Dédupliquer par (sale_id|order_id, role) pour éviter les clones visuels
+const seen = new Set();
+commLastBatch = commLastBatch.filter(c => {
+  const s = c.sale || {};
+  const key = `${c.role}|${s.id || s.order_id || c.id}`;
+  if (seen.has(key)) return false;
+  seen.add(key);
+  return true;
+});
         if(reset) commTbody.innerHTML='';
 
         if(commLastBatch.length===0 && (commPage===1||commOffset===0)){
@@ -668,6 +677,17 @@
       commTotalsEl.textContent = 'Calcul des totaux…';
       try{
         const rows = await fetchAllCommissionsForExport();
+        // Dédupliquer aussi les totaux
+const seenKeys = new Set();
+const uniqRows = [];
+for (const c0 of rows) {
+  const c = c0.beneficiary || c0.sale ? c0 : { amount:c0.commission_amount ?? c0.amount, currency:c0.commission_currency ?? c0.currency, status:c0.status, role:c0.role, sale:{ id:c0.sale_id, order_id:c0.order_id } };
+  const s = c.sale || {};
+  const key = `${c.role}|${s.id || s.order_id || c.id}`;
+  if (!seenKeys.has(key)) { seenKeys.add(key); uniqRows.push(c0); }
+}
+// et ensuite, parcourez uniqRows au lieu de rows
+const source = uniqRows;
         const totals = {
           pending:{count:0,sum:0}, approved:{count:0,sum:0}, paid:{count:0,sum:0}, other:{count:0,sum:0}, all:{count:0,sum:0}
         };
