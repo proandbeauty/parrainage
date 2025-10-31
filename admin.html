@@ -904,22 +904,25 @@ $('#form-add-sale')?.addEventListener('submit', async (e) => {
     ? data.order_id.trim()
     : `ORDER-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(Math.random()*1e6).toString().padStart(6,'0')}`;
 
-  // Payload “compat”
-  const payload = {
-    order_id: autoOrderId,
-    institute_name: data.institute_name,
-    pro_name: data.pro_name,
-    postal_code: data.postal_code,
+// Payload “compat” : valeurs sûres pour satisfaire l’API
+const payload = {
+  // champs visibles
+  order_id: autoOrderId,
+  institute_name: data.institute_name,
+  pro_name: data.pro_name,
+  postal_code: data.postal_code,
 
-    referral_code: normRefCode,
-    code: normRefCode,
-    seller_code: normRefCode,
+  // code vendeur : on envoie tous les alias possibles
+  referral_code: normRefCode,
+  code: normRefCode,
+  seller_code: normRefCode,
 
-    buyer_email: `client+${Date.now()}@noreply.local`,
-    amount: 0,
-    currency: 'EUR',
-    created_at: new Date().toISOString()
-  };
+  // champs souvent requis par la route
+  buyer_email: `client+${Date.now()}@noreply.local`,
+  amount: 1,               // ⚠️ mettre > 0 pour éviter le refus “montant”
+  currency: 'EUR',
+  created_at: new Date().toISOString()
+};
 
   btn.disabled = true;
   try {
@@ -931,13 +934,16 @@ $('#form-add-sale')?.addEventListener('submit', async (e) => {
 
     // Lecture robuste de la réponse
     const txt = await res.text();
-    let j = {}; try { j = txt ? JSON.parse(txt) : {}; } catch { j = { error: txt || '' }; }
+let j = {};
+try { j = txt ? JSON.parse(txt) : {}; } catch { j = { error: txt || '' }; }
 
-    if (!res.ok) {
-      document.querySelector('#modal-add-sale [data-err="form"]').textContent = j.error || 'Erreur serveur';
-      console.error('create-sale error:', j);
-      return;
-    }
+if (!res.ok) {
+  // Affiche le statut et le corps brut pour comprendre quel champ manque
+  document.querySelector('#modal-add-sale [data-err="form"]').textContent =
+    (j.error || 'Erreur serveur') + (txt && txt !== j.error ? ` — ${txt}` : '');
+  console.error('create-sale error', res.status, j, txt);
+  return;
+}
 
     closeModal('#modal-add-sale');
     showToast('Vente créée ✅', true);
