@@ -867,31 +867,75 @@
       if (form) { form.reset(); document.querySelectorAll('#modal-add-sale [data-err]').forEach(el => el.textContent = ''); openModal('#modal-add-sale'); }
     });
 
-    $('#form-add-sale')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const form = e.target;
-      const btn = form.querySelector('button[type="submit"]');
-      if (!token()) { showToast('Token admin requis', false); return; }
+$('#form-add-sale')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
 
-      const fd = new FormData(form);
-      const data = {}; for (const [k, v] of fd.entries()) data[k] = String(v).trim();
-      document.querySelectorAll('#modal-add-sale [data-err]').forEach(el => el.textContent = '');
+  const form = e.target;
+  const btn  = form.querySelector('button[type="submit"]');
+  if (!token()) { showToast('Token admin requis', false); return; }
 
-      if (!data.postal_code || data.postal_code.length !== 5) { document.querySelector('#modal-add-sale [data-err="postal_code"]').textContent = 'Code postal doit faire 5 chiffres'; return; }
-      if (!data.institute_name || !data.pro_name || !data.referral_code) { document.querySelector('#modal-add-sale [data-err="form"]').textContent = 'Tous les champs sont requis'; return; }
+  // Nettoyage erreurs
+  document.querySelectorAll('#modal-add-sale [data-err]').forEach(el => el.textContent = '');
 
-      btn.disabled = true;
-      try {
-        const r = await fetch('/api/admin/create-sale', { method: 'POST', headers: { 'Content-Type': 'application/json', ...auth() }, body: JSON.stringify({
-  ...data
-}) });
-        const j = await r.json();
-        if (!r.ok) { document.querySelector('#modal-add-sale [data-err="form"]').textContent = j.error || 'Erreur'; return; }
-        closeModal('#modal-add-sale'); showToast('Vente créée ✅', true); loadSales(true);
-      } catch (err) {
-        document.querySelector('#modal-add-sale [data-err="form"]').textContent = 'Erreur réseau';
-      } finally { btn.disabled = false; }
+  // Lecture + normalisation
+  const fd   = new FormData(form);
+  const data = Object.fromEntries([...fd.entries()].map(([k,v])=>[k,String(v).trim()]));
+
+  // Validations légères
+  const cpOk = /^\d{5}$/.test(data.postal_code || '');
+  if (!cpOk) {
+    document.querySelector('#modal-add-sale [data-err="postal_code"]').textContent = 'Code postal invalide (5 chiffres).';
+    return;
+  }
+  if (!data.institute_name || !data.pro_name || !data.referral_code) {
+    document.querySelector('#modal-add-sale [data-err="form"]').textContent = 'Tous les champs visibles sont requis.';
+    return;
+  }
+
+  // Normalisation du code parrain (espaces / casse)
+  const normRefCode = data.referral_code.replace(/\s+/g,' ').trim();
+
+  // ➜ Remplissage des champs que l’API attend encore
+  const payload = {
+    order_id: data.order_id || null,
+    institute_name: data.institute_name,
+    pro_name: data.pro_name,
+    postal_code: data.postal_code,
+    referral_code: normRefCode,
+
+    // Champs "fantômes" attendus par le backend
+    buyer_email: `client+${Date.now()}@noreply.local`,
+    amount: null,
+    currency: 'EUR',
+    created_at: new Date().toISOString()
+  };
+
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/admin/create-sale', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...auth() },
+      body: JSON.stringify(payload)
     });
+
+    const j = await res.json();
+
+    if (!res.ok) {
+      document.querySelector('#modal-add-sale [data-err="form"]').textContent = j.error || 'Erreur serveur';
+      console.error('create-sale error:', j);
+      return;
+    }
+
+    closeModal('#modal-add-sale');
+    showToast('Vente créée ✅', true);
+    loadSales(true);
+  } catch (err) {
+    console.error('create-sale network error:', err);
+    document.querySelector('#modal-add-sale [data-err="form"]').textContent = 'Erreur réseau';
+  } finally {
+    btn.disabled = false;
+  }
+});
 
     document.getElementById('sales_export')?.addEventListener('click', async () => {
   try {
